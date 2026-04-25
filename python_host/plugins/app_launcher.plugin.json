@@ -1,0 +1,8 @@
+﻿{
+  "name": "App Launcher",
+  "version": "1.0.0",
+  "author": "KnobDeck",
+  "description": "Launch configured desktop apps from the wheel.",
+  "settings_schema": []
+}
+

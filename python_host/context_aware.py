@@ -4,11 +4,15 @@ Detects active application and provides relevant commands
 """
 
 import logging
+import json
+import os
+import subprocess
+import webbrowser
 import win32gui
 import win32process
 import psutil
 import time
-from typing import Dict, List, Optional, Callable
+from typing import Dict, List, Optional, Callable, Any
 from dataclasses import dataclass
 
 logger = logging.getLogger("KeychronApp.ContextAware")
@@ -92,6 +96,134 @@ class ContextProvider:
     def get_priority(self) -> int:
         """Get priority (higher = more important, shown first)"""
         return 0
+
+
+class CustomJsonContextProvider(ContextProvider):
+    """User-defined context commands loaded from custom_context_commands.json."""
+
+    def __init__(self, config_path: str):
+        self.config_path = config_path
+        self._rules: List[Dict[str, Any]] = []
+        self._mtime = 0.0
+
+    def get_priority(self) -> int:
+        return 20
+
+    def _load_rules_if_needed(self):
+        try:
+            mtime = os.path.getmtime(self.config_path)
+        except OSError:
+            self._rules = []
+            self._mtime = 0.0
+            return
+
+        if mtime == self._mtime:
+            return
+
+        self._mtime = mtime
+        try:
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                rules = data.get("rules", [])
+            else:
+                rules = data
+            self._rules = rules if isinstance(rules, list) else []
+            logger.info(f"Loaded {len(self._rules)} custom context rules")
+        except Exception as e:
+            logger.warning(f"Failed to parse custom context commands: {e}")
+            self._rules = []
+
+    def _rule_matches(self, rule: Dict[str, Any], context: AppContext) -> bool:
+        processes = rule.get("processes", [])
+        titles = rule.get("window_title_contains", [])
+        match_any = bool(rule.get("match_any", True))
+
+        process_hit = True
+        title_hit = True
+
+        if isinstance(processes, list) and processes:
+            process_hit = context.process_name.lower() in [str(p).lower() for p in processes]
+
+        if isinstance(titles, list) and titles:
+            title_hit = any(str(t).lower() in context.window_title.lower() for t in titles)
+
+        return (process_hit or title_hit) if match_any else (process_hit and title_hit)
+
+    def matches(self, context: AppContext) -> bool:
+        self._load_rules_if_needed()
+        for rule in self._rules:
+            if isinstance(rule, dict) and self._rule_matches(rule, context):
+                return True
+        return False
+
+    def _build_callback(self, action: Dict[str, Any]) -> Callable:
+        action_type = str(action.get("type", "shell")).lower()
+
+        if action_type == "url":
+            url = str(action.get("url", "")).strip()
+            return lambda: webbrowser.open(url)
+
+        if action_type == "shell":
+            command = str(action.get("command", "")).strip()
+            return lambda: subprocess.Popen(["cmd", "/c", command], shell=False)
+
+        if action_type == "hotkey":
+            hotkey = str(action.get("hotkey", "")).strip()
+            sequence = action.get("sequence", [])
+            interval_ms = int(action.get("interval_ms", 40))
+
+            def send_hotkey():
+                try:
+                    import keyboard as kb_lib
+                except Exception as e:
+                    logger.warning(f"Hotkey action requires 'keyboard' package: {e}")
+                    return
+
+                if hotkey:
+                    kb_lib.send(hotkey)
+                    return
+
+                if isinstance(sequence, list):
+                    for stroke in sequence:
+                        key = str(stroke).strip()
+                        if not key:
+                            continue
+                        kb_lib.send(key)
+                        time.sleep(max(0, interval_ms) / 1000.0)
+
+            return send_hotkey
+
+        # Fallback no-op callback
+        return lambda: None
+
+    def get_commands(self, context: AppContext) -> List[ContextCommand]:
+        self._load_rules_if_needed()
+        commands: List[ContextCommand] = []
+
+        for rule in self._rules:
+            if not isinstance(rule, dict) or not self._rule_matches(rule, context):
+                continue
+
+            for item in rule.get("commands", []):
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get("name", "Custom Command")).strip()
+                desc = str(item.get("description", "")).strip()
+                icon = item.get("icon")
+                action = item.get("action", {})
+                if not isinstance(action, dict):
+                    continue
+                commands.append(
+                    ContextCommand(
+                        name=name,
+                        description=desc,
+                        callback=self._build_callback(action),
+                        icon=str(icon) if icon is not None else None,
+                    )
+                )
+
+        return commands
 
 
 # ============================================================================
@@ -275,6 +407,8 @@ class ContextAwareManager:
 
     def _register_default_providers(self):
         """Register built-in context providers"""
+        custom_path = os.path.join(os.path.dirname(__file__), "custom_context_commands.json")
+        self.register_provider(CustomJsonContextProvider(custom_path))
         self.register_provider(BrowserContextProvider())
         self.register_provider(CodeEditorContextProvider())
         self.register_provider(DiscordContextProvider())

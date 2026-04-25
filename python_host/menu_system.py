@@ -44,6 +44,8 @@ class MenuMode(Enum):
     VOICEMEETER_MENU = auto()      # Voicemeeter submenu selector
     MEDIA = auto()                 # Media control mode
     VOLUME = auto()                # System volume control
+    VOLUME_MIXER = auto()          # Per-app volume mixer
+    RECENT_ACTIONS = auto()        # Recent action rerun list
     WINDOW_MENU = auto()           # Window manager submenu selector
 
     # Theme submenus
@@ -69,6 +71,8 @@ class MenuMode(Enum):
 
     # App launcher menu
     APP_LAUNCHER_MENU = auto()     # App launcher submenu selector
+    LIGHTING_MENU = auto()         # Lighting and SignalRGB controls
+    LIGHTING_EFFECTS = auto()      # SignalRGB effect browser
 
     # Virtual Desktop modes (plugin)
     VIRTUAL_DESKTOP = auto()       # Virtual desktop switcher
@@ -82,6 +86,13 @@ class MenuMode(Enum):
 
     # Context-aware modes (plugin)
     CONTEXT_MENU = auto()          # Context-specific commands
+
+    # Integrations modes (plugin)
+    INTEGRATIONS_MENU = auto()     # Integrations root menu
+    INTEGRATION_DISCORD = auto()   # Discord quick actions
+    INTEGRATION_OBS = auto()       # OBS quick actions
+    INTEGRATION_STEAM = auto()     # Steam quick actions
+    INTEGRATION_SIGNALRGB = auto() # SignalRGB quick actions
 
 
 @dataclass
@@ -189,6 +200,47 @@ class MenuStateMachine:
         self.ui_callback: Optional[Callable[[Dict[str, str]], None]] = None
         self.notification_callback: Optional[Callable[[str, int], None]] = None
         self.single_click_timer: Optional[threading.Timer] = None
+        self.notifications_enabled: bool = True
+        self.submenu_timeout_enabled: bool = False
+        self.mode_timeout_overrides: Dict[str, int] = {}
+        self.mode_parent_map: Dict[MenuMode, MenuMode] = {
+            # Theme hierarchy
+            MenuMode.THEME_PRESET: MenuMode.THEME_MENU,
+            MenuMode.THEME_BOX: MenuMode.THEME_MENU,
+            MenuMode.THEME_ACCENT: MenuMode.THEME_MENU,
+            MenuMode.THEME_TEXT: MenuMode.THEME_MENU,
+            MenuMode.THEME_GLOW: MenuMode.THEME_MENU,
+
+            # Voicemeeter hierarchy
+            MenuMode.VM_SYSTEM: MenuMode.VOICEMEETER_MENU,
+            MenuMode.VM_MIC: MenuMode.VOICEMEETER_MENU,
+            MenuMode.VM_MAIN_ROUTING: MenuMode.VOICEMEETER_MENU,
+            MenuMode.VM_MUSIC_GAIN: MenuMode.VOICEMEETER_MENU,
+            MenuMode.VM_MUSIC_ROUTING: MenuMode.VOICEMEETER_MENU,
+            MenuMode.VM_COMM_GAIN: MenuMode.VOICEMEETER_MENU,
+            MenuMode.VM_COMM_ROUTING: MenuMode.VOICEMEETER_MENU,
+
+            # Window hierarchy
+            MenuMode.WINDOW_CYCLE: MenuMode.WINDOW_MENU,
+            MenuMode.WINDOW_SNAP: MenuMode.WINDOW_MENU,
+
+            # Lighting hierarchy
+            MenuMode.LIGHTING_EFFECTS: MenuMode.LIGHTING_MENU,
+
+            # Display control hierarchy
+            MenuMode.DISPLAY_BRIGHTNESS: MenuMode.DISPLAY_MENU,
+            MenuMode.DISPLAY_MODE: MenuMode.DISPLAY_MENU,
+            MenuMode.DISPLAY_TOGGLE: MenuMode.DISPLAY_MENU,
+
+            # Virtual desktop hierarchy
+            MenuMode.VIRTUAL_DESKTOP: MenuMode.VIRTUAL_DESKTOP_MENU,
+
+            # Integrations hierarchy
+            MenuMode.INTEGRATION_DISCORD: MenuMode.INTEGRATIONS_MENU,
+            MenuMode.INTEGRATION_OBS: MenuMode.INTEGRATIONS_MENU,
+            MenuMode.INTEGRATION_STEAM: MenuMode.INTEGRATIONS_MENU,
+            MenuMode.INTEGRATION_SIGNALRGB: MenuMode.INTEGRATIONS_MENU,
+        }
 
     def register_mode_handler(self, mode: MenuMode, handler: ModeHandler):
         """Register a handler for a specific mode"""
@@ -208,8 +260,41 @@ class MenuStateMachine:
 
     def show_notification(self, message: str, duration: int = None):
         """Show notification via callback"""
-        if self.notification_callback:
+        if self.notifications_enabled and self.notification_callback:
             self.notification_callback(message, duration or Config.NOTIFICATION_DURATION)
+
+    def apply_settings(self, settings: Dict[str, Any]):
+        """Apply runtime-tunable settings."""
+        if not isinstance(settings, dict):
+            return
+
+        menu_timeout_ms = settings.get('menu_timeout_ms')
+        if isinstance(menu_timeout_ms, int) and 500 <= menu_timeout_ms <= 10000:
+            Config.MENU_TIMEOUT_MS = menu_timeout_ms
+
+        double_click_ms = settings.get('double_click_ms')
+        if isinstance(double_click_ms, int) and 100 <= double_click_ms <= 1000:
+            Config.DOUBLE_CLICK_MS = double_click_ms
+
+        volume_step = settings.get('volume_step')
+        if isinstance(volume_step, int) and 1 <= volume_step <= 20:
+            Config.VOLUME_STEP = volume_step
+
+        notifications_enabled = settings.get('notifications_enabled')
+        if isinstance(notifications_enabled, bool):
+            self.notifications_enabled = notifications_enabled
+
+        submenu_timeout_enabled = settings.get('submenu_timeout_enabled')
+        if isinstance(submenu_timeout_enabled, bool):
+            self.submenu_timeout_enabled = submenu_timeout_enabled
+
+        mode_timeout_ms = settings.get('mode_timeout_ms')
+        if isinstance(mode_timeout_ms, dict):
+            normalized: Dict[str, int] = {}
+            for key, value in mode_timeout_ms.items():
+                if isinstance(key, str) and isinstance(value, int) and 500 <= value <= 15000:
+                    normalized[key] = value
+            self.mode_timeout_overrides = normalized
 
     def update_display(self):
         """Update UI display based on current state"""
@@ -255,12 +340,15 @@ class MenuStateMachine:
 
     def check_menu_timeout(self) -> bool:
         """Check if menu should auto-exit"""
-        # Allow timeout in all modes
+        if self.state.menu_mode != MenuMode.NORMAL and not self.submenu_timeout_enabled:
+            return False
+
         if self.state.menu_timer is None:
             return False
 
         elapsed = (time.time() - self.state.menu_timer) * 1000
-        return elapsed > Config.MENU_TIMEOUT_MS
+        timeout_ms = self.mode_timeout_overrides.get(self.state.menu_mode.name, Config.MENU_TIMEOUT_MS)
+        return elapsed > timeout_ms
 
     def enter_mode(self, mode: MenuMode):
         """Transition to a new mode"""
@@ -338,9 +426,27 @@ class MenuStateMachine:
                 self.update_display()
                 self.reset_menu_timer()
 
+    def handle_rotation_direction(self, clockwise: bool):
+        """Handle rotation when direction is known directly."""
+        if self.state.menu_mode == MenuMode.NORMAL:
+            return
+
+        handler = self.mode_handlers.get(self.state.menu_mode)
+        if handler:
+            handler.on_rotation(self.state, clockwise)
+            self.update_display()
+            self.reset_menu_timer()
+
     def handle_press(self):
         """Handle press event"""
         if self.state.menu_mode == MenuMode.NORMAL:
+            # If main menu is hidden, first click should open it instead of
+            # immediately executing the selected command.
+            if self.state.menu_timer is None:
+                self.reset_menu_timer()
+                self.update_display()
+                return
+
             # Normal mode: Execute current command
             cmd = self.commands.get(self.state.current_command)
             if cmd:
@@ -360,37 +466,13 @@ class MenuStateMachine:
                 except Exception as e:
                     self.show_notification(f"Error: {e}", Config.ERROR_DURATION)
         else:
-            # Menu mode: Single click - delegate to handler
-            current_time = time.time() * 1000  # Convert to ms
-            time_since_last = current_time - self.state.last_click_time
-            
-            # Cancel pending single click if any
-            if self.single_click_timer:
-                self.single_click_timer.cancel()
-                self.single_click_timer = None
-
-            if time_since_last < Config.DOUBLE_CLICK_MS:
-                # Click came within threshold
-                self.state.click_count += 1
-
-                if self.state.click_count >= 2:
-                    # Double-click: Exit menu mode
-                    self.state.click_count = 0
-                    self.exit_menu_mode()
-                    return
-            else:
-                # New click sequence
-                self.state.click_count = 1
-
-            self.state.last_click_time = current_time
-
-            # Schedule single click execution
-            if self.state.click_count == 1:
-                self.single_click_timer = threading.Timer(
-                    Config.DOUBLE_CLICK_MS / 1000.0, 
-                    self._execute_single_click
-                )
-                self.single_click_timer.start()
+            # Menu mode: execute immediately.
+            # Double-tap exit is handled by firmware event (F18) via handle_double_tap().
+            handler = self.mode_handlers.get(self.state.menu_mode)
+            if handler:
+                handler.on_press(self.state)
+                self.update_display()
+                self.reset_menu_timer()
 
     def handle_long_press(self):
         """Handle long press event"""
@@ -403,8 +485,20 @@ class MenuStateMachine:
         if self.single_click_timer:
             self.single_click_timer.cancel()
             self.single_click_timer = None
-        if self.state.menu_mode != MenuMode.NORMAL:
+        self.go_back_one_level()
+
+    def go_back_one_level(self):
+        """Navigate one level up in menu hierarchy."""
+        current = self.state.menu_mode
+        if current == MenuMode.NORMAL:
+            # In normal mode, treat back as hide menu overlay.
             self.exit_menu_mode()
+            return
+
+        parent = self.mode_parent_map.get(current, MenuMode.NORMAL)
+        self.enter_mode(parent)
+        if parent == MenuMode.NORMAL:
+            self.show_notification("Returned to Normal Mode", Config.NOTIFICATION_DURATION)
 
     @staticmethod
     def _is_rotating_clockwise(prev_index: int, curr_index: int) -> bool:

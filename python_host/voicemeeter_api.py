@@ -15,7 +15,7 @@ Requirements:
 import ctypes
 import os
 import time
-from typing import Optional
+from typing import Optional, Callable, Dict, Any, List
 from pathlib import Path
 
 
@@ -130,11 +130,6 @@ class VoicemeeterAPI:
                     self.run_voicemeeter(2)
                     time.sleep(1.0)  # Wait for Voicemeeter to initialize
 
-                # Configure default routing: Mic (Strip 0) -> B1
-                time.sleep(0.5)
-                self.set_parameter("Strip[0].Mute", 0.0) # Ensure mic is not muted
-                self.set_parameter("Strip[0].A1", 1.0) # Route mic to A1
-
                 print("[OK] Connected to Voicemeeter Potato")
                 return True
             else:
@@ -212,21 +207,146 @@ class VoicemeeterAPI:
 
 
 class VoicemeeterConfig:
-    """Voicemeeter Potato strip/output configuration"""
+    """Voicemeeter strip/output configuration (Voicemeeter/Banana/Potato)."""
+    def __init__(self):
+        # Hardware Inputs (Stereo)
+        self.MIC_STRIP = 0           # Strip 0: Microphone
+        self.UNUSED_STRIPS = [1, 2, 3, 4]  # Strips 1-4: Unused hardware inputs
 
-    # Hardware Inputs (Stereo)
-    MIC_STRIP = 0           # Strip 0: Microphone
-    UNUSED_STRIPS = [1, 2, 3, 4]  # Strips 1-4: Unused hardware inputs
+        # Virtual Inputs
+        self.MAIN_STRIP = 5          # Strip 5: Main desktop audio
+        self.MUSIC_STRIP = 6         # Strip 6: Music player
+        self.COMM_STRIP = 7          # Strip 7: Communications (Discord)
 
-    # Virtual Inputs
-    MAIN_STRIP = 5          # Strip 5: Main desktop audio
-    MUSIC_STRIP = 6         # Strip 6: Music player
-    COMM_STRIP = 7          # Strip 7: Communications (Discord)
+        # Hardware Outputs
+        self.OUTPUT_A1 = "A1"
+        self.OUTPUT_A2 = "A2"
+        self.OUTPUT_A3 = "A3"
+        self.OUTPUT_A4 = "A4"
+        self.OUTPUT_A5 = "A5"
+        self.OUTPUT_B1 = "B1"
+        self.OUTPUT_B2 = "B2"
+        self.OUTPUT_B3 = "B3"
+        self.ALL_OUTPUTS = [
+            self.OUTPUT_A1, self.OUTPUT_A2, self.OUTPUT_A3, self.OUTPUT_A4, self.OUTPUT_A5,
+            self.OUTPUT_B1, self.OUTPUT_B2, self.OUTPUT_B3
+        ]
+        self.OUTPUT_NAMES = {
+            "A1": "Speakers",
+            "A2": "Wired",
+            "A3": "Wireless",
+            "A4": "Alt 1",
+            "A5": "Alt 2",
+            "B1": "Virtual Out 1",
+            "B2": "Virtual Out 2",
+            "B3": "Virtual Out 3",
+        }
+        self.OUTPUT_ICONS = {
+            "A1": "SPK",
+            "A2": "WIR",
+            "A3": "WLS",
+            "A4": "A4",
+            "A5": "A5",
+            "B1": "B1",
+            "B2": "B2",
+            "B3": "B3",
+        }
+        self.VARIANT = "potato"  # voicemeeter | banana | potato
+        self.ACTIVE_OUTPUTS = self._variant_default_outputs(self.VARIANT)
 
-    # Hardware Outputs
-    OUTPUT_A1 = "A1"        # Speakers
-    OUTPUT_A2 = "A2"        # Wired headset
-    OUTPUT_A3 = "A3"        # Wireless headset
+    def _variant_default_outputs(self, variant: str) -> List[str]:
+        if variant == "voicemeeter":
+            return [self.OUTPUT_A1, self.OUTPUT_A2, self.OUTPUT_B1]
+        if variant == "banana":
+            return [self.OUTPUT_A1, self.OUTPUT_A2, self.OUTPUT_A3, self.OUTPUT_B1, self.OUTPUT_B2]
+        return list(self.ALL_OUTPUTS)
+
+    def _variant_supported_outputs(self, variant: str) -> List[str]:
+        return self._variant_default_outputs(variant)
+
+    def _variant_max_strip(self, variant: str) -> int:
+        if variant == "voicemeeter":
+            return 2
+        if variant == "banana":
+            return 4
+        return 7
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "mic_strip": int(self.MIC_STRIP),
+            "main_strip": int(self.MAIN_STRIP),
+            "music_strip": int(self.MUSIC_STRIP),
+            "comm_strip": int(self.COMM_STRIP),
+            "output_names": dict(self.OUTPUT_NAMES),
+            "output_icons": dict(self.OUTPUT_ICONS),
+            "variant": self.VARIANT,
+            "active_outputs": list(self.ACTIVE_OUTPUTS),
+        }
+
+    def apply_overrides(self, data: Dict[str, Any]):
+        if not isinstance(data, dict):
+            return
+
+        variant_before = self.VARIANT
+        variant = str(data.get("variant", self.VARIANT)).strip().lower()
+        if variant in ("voicemeeter", "banana", "potato"):
+            self.VARIANT = variant
+
+        max_strip = self._variant_max_strip(self.VARIANT)
+
+        def _clamp_strip(value: Any, fallback: int) -> int:
+            try:
+                return max(0, min(max_strip, int(value)))
+            except Exception:
+                return fallback
+
+        self.MIC_STRIP = _clamp_strip(data.get("mic_strip", self.MIC_STRIP), self.MIC_STRIP)
+        self.MAIN_STRIP = _clamp_strip(data.get("main_strip", self.MAIN_STRIP), self.MAIN_STRIP)
+        self.MUSIC_STRIP = _clamp_strip(data.get("music_strip", self.MUSIC_STRIP), self.MUSIC_STRIP)
+        self.COMM_STRIP = _clamp_strip(data.get("comm_strip", self.COMM_STRIP), self.COMM_STRIP)
+
+        output_names = data.get("output_names")
+        if isinstance(output_names, dict):
+            for out in self.ALL_OUTPUTS:
+                if out in output_names:
+                    value = str(output_names.get(out, "")).strip()
+                    if value:
+                        self.OUTPUT_NAMES[out] = value
+        elif isinstance(output_names, list) and len(output_names) >= 3:
+            # Backward compatibility with legacy A1/A2/A3 list format.
+            self.OUTPUT_NAMES["A1"] = str(output_names[0]).strip() or self.OUTPUT_NAMES["A1"]
+            self.OUTPUT_NAMES["A2"] = str(output_names[1]).strip() or self.OUTPUT_NAMES["A2"]
+            self.OUTPUT_NAMES["A3"] = str(output_names[2]).strip() or self.OUTPUT_NAMES["A3"]
+
+        output_icons = data.get("output_icons")
+        if isinstance(output_icons, dict):
+            for out in self.ALL_OUTPUTS:
+                if out in output_icons:
+                    value = str(output_icons.get(out, "")).strip()
+                    if value:
+                        self.OUTPUT_ICONS[out] = value
+        elif isinstance(output_icons, list) and len(output_icons) >= 3:
+            # Backward compatibility with legacy A1/A2/A3 list format.
+            self.OUTPUT_ICONS["A1"] = str(output_icons[0]).strip() or self.OUTPUT_ICONS["A1"]
+            self.OUTPUT_ICONS["A2"] = str(output_icons[1]).strip() or self.OUTPUT_ICONS["A2"]
+            self.OUTPUT_ICONS["A3"] = str(output_icons[2]).strip() or self.OUTPUT_ICONS["A3"]
+
+        active_outputs = data.get("active_outputs")
+        if isinstance(active_outputs, list):
+            allowed = set(self._variant_supported_outputs(self.VARIANT))
+            normalized = [str(x).upper() for x in active_outputs if str(x).upper() in allowed]
+            if normalized:
+                canonical = [x for x in self.ALL_OUTPUTS if x in allowed]
+                self.ACTIVE_OUTPUTS = [x for x in canonical if x in normalized]
+        elif self.VARIANT != variant_before:
+            self.ACTIVE_OUTPUTS = self._variant_default_outputs(self.VARIANT)
+
+        if not self.ACTIVE_OUTPUTS:
+            defaults = self._variant_default_outputs(self.VARIANT)
+            self.ACTIVE_OUTPUTS = [defaults[0]] if defaults else [self.OUTPUT_A1]
+
+    def get_outputs(self) -> List[str]:
+        return list(self.ACTIVE_OUTPUTS)
 
 
 class VoicemeeterController:
@@ -235,6 +355,19 @@ class VoicemeeterController:
     def __init__(self):
         self.api = VoicemeeterAPI()
         self.config = VoicemeeterConfig()
+        self._state_change_callback: Optional[Callable[[], None]] = None
+
+    def set_state_change_callback(self, callback: Optional[Callable[[], None]]):
+        """Register callback invoked after state-changing operations."""
+        self._state_change_callback = callback
+
+    def _notify_state_changed(self):
+        if self._state_change_callback:
+            try:
+                self._state_change_callback()
+            except Exception:
+                # Avoid breaking control flow on persistence callback errors.
+                pass
 
     def connect(self) -> bool:
         """Connect to Voicemeeter"""
@@ -248,6 +381,10 @@ class VoicemeeterController:
         """Check if Voicemeeter is available"""
         return self.api.is_available()
 
+    def apply_profile(self, profile: Dict[str, Any]):
+        """Apply user-defined Voicemeeter profile config."""
+        self.config.apply_overrides(profile)
+
     # ========================================================================
     # MICROPHONE CONTROL
     # ========================================================================
@@ -257,9 +394,12 @@ class VoicemeeterController:
         value = self.api.get_parameter(f"Strip[{self.config.MIC_STRIP}].Mute")
         return bool(value) if value is not None else False
 
-    def set_mic_mute(self, muted: bool):
+    def set_mic_mute(self, muted: bool, persist: bool = True) -> bool:
         """Set microphone mute state"""
-        self.api.set_parameter(f"Strip[{self.config.MIC_STRIP}].Mute", 1.0 if muted else 0.0)
+        ok = self.api.set_parameter(f"Strip[{self.config.MIC_STRIP}].Mute", 1.0 if muted else 0.0)
+        if ok and persist:
+            self._notify_state_changed()
+        return ok
 
     def toggle_mic_mute(self):
         """Toggle microphone mute"""
@@ -274,11 +414,14 @@ class VoicemeeterController:
         value = self.api.get_parameter(f"Strip[{strip}].Gain")
         return value if value is not None else 0.0
 
-    def set_strip_gain(self, strip: int, gain_db: float):
+    def set_strip_gain(self, strip: int, gain_db: float, persist: bool = True) -> bool:
         """Set strip gain in dB (clamped to -60 to +12 dB)"""
         # Clamp to valid range
         clamped = max(-60.0, min(12.0, gain_db))
-        self.api.set_parameter(f"Strip[{strip}].Gain", clamped)
+        ok = self.api.set_parameter(f"Strip[{strip}].Gain", clamped)
+        if ok and persist:
+            self._notify_state_changed()
+        return ok
 
     def adjust_strip_gain(self, strip: int, delta_db: float):
         """Adjust strip gain by delta (clamped to -60 to +12 dB)"""
@@ -300,15 +443,85 @@ class VoicemeeterController:
         # Voicemeeter returns 0.0 or 1.0
         return value > 0.5
 
-    def set_routing(self, strip: int, output: str, enabled: bool):
+    def set_routing(self, strip: int, output: str, enabled: bool, persist: bool = True) -> bool:
         """Set strip routing to output"""
-        self.api.set_parameter(f"Strip[{strip}].{output}", 1.0 if enabled else 0.0)
+        ok = self.api.set_parameter(f"Strip[{strip}].{output}", 1.0 if enabled else 0.0)
+        if ok and persist:
+            self._notify_state_changed()
+        return ok
 
     def toggle_routing(self, strip: int, output: str):
         """Toggle strip routing to output"""
         current = self.get_routing(strip, output)
-        self.set_routing(strip, output, not current)
-        time.sleep(0.02)  # Small delay for parameter to propagate
+        target = not current
+
+        # Apply and verify with short retries to avoid missed clicks.
+        for _ in range(3):
+            self.set_routing(strip, output, target)
+            time.sleep(0.03)
+            if self.get_routing(strip, output) == target:
+                return
+
+    # ========================================================================
+    # STATE SNAPSHOT / RESTORE
+    # ========================================================================
+
+    def get_state(self) -> Dict[str, Any]:
+        """Snapshot key Voicemeeter state used by this app."""
+        outputs = self.config.get_outputs()
+
+        def routing_for(strip: int) -> Dict[str, bool]:
+            return {out: self.get_routing(strip, out) for out in outputs}
+
+        return {
+            "mic": {
+                "mute": self.get_mic_mute(),
+                "gain": self.get_strip_gain(self.config.MIC_STRIP),
+                "routing": routing_for(self.config.MIC_STRIP),
+            },
+            "main": {
+                "gain": self.get_strip_gain(self.config.MAIN_STRIP),
+                "routing": routing_for(self.config.MAIN_STRIP),
+            },
+            "music": {
+                "gain": self.get_strip_gain(self.config.MUSIC_STRIP),
+                "routing": routing_for(self.config.MUSIC_STRIP),
+            },
+            "comm": {
+                "gain": self.get_strip_gain(self.config.COMM_STRIP),
+                "routing": routing_for(self.config.COMM_STRIP),
+            },
+        }
+
+    def apply_state(self, state: Dict[str, Any]):
+        """Apply previously saved app-managed Voicemeeter state."""
+        if not state:
+            return
+
+        strip_map = {
+            "mic": self.config.MIC_STRIP,
+            "main": self.config.MAIN_STRIP,
+            "music": self.config.MUSIC_STRIP,
+            "comm": self.config.COMM_STRIP,
+        }
+
+        for key, strip in strip_map.items():
+            section = state.get(key) or {}
+
+            if "gain" in section:
+                try:
+                    self.set_strip_gain(strip, float(section["gain"]), persist=False)
+                except (TypeError, ValueError):
+                    pass
+
+            routing = section.get("routing")
+            if isinstance(routing, dict):
+                for output in self.config.get_outputs():
+                    if output in routing:
+                        self.set_routing(strip, output, bool(routing[output]), persist=False)
+
+            if key == "mic" and "mute" in section:
+                self.set_mic_mute(bool(section["mute"]), persist=False)
 
 
 # ============================================================================

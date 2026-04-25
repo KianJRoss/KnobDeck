@@ -12,6 +12,11 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# Custom firmware protocol constants
+HID_CMD_MARKER = 0xFE
+CMD_SET_MODE = 0x10
+CMD_HEARTBEAT = 0x12
+MODE_DEFAULT = 0x00
 
 class HIDReaderThread(QThread):
     """Background thread for reading HID events from keyboard"""
@@ -42,9 +47,14 @@ class HIDReaderThread(QThread):
         self.running = False
         self._reconnect_attempts = 0
         self._max_reconnect_attempts = 5
+        self._heartbeat_interval = 0.75
+        self._last_heartbeat = 0.0
 
     def run(self):
-        """Main thread loop - reads HID events"""
+        """Main thread loop - sends heartbeats to keep firmware link active.
+        Events are delivered via F13-F18 keyboard shortcuts instead
+        of raw HID reads, so VIA gets uncontested access to the HID endpoint.
+        """
         self.running = True
 
         while self.running:
@@ -55,15 +65,11 @@ class HIDReaderThread(QThread):
                         time.sleep(2)  # Wait before retry
                         continue
 
-                # Read HID data (blocking with timeout)
-                data = self.device.read(64, timeout_ms=100)
-
-                if data:
-                    self._process_hid_data(data)
-                    self._reconnect_attempts = 0  # Reset on successful read
+                self._send_heartbeat_if_needed()
+                time.sleep(0.1)  # 100 ms sleep — no read needed
 
             except Exception as e:
-                logger.error(f"HID read error: {e}")
+                logger.error(f"HID heartbeat error: {e}")
                 self._handle_connection_error()
                 time.sleep(1)
 
@@ -98,6 +104,8 @@ class HIDReaderThread(QThread):
             self.device = hid.device()
             self.device.open_path(target_device['path'])
             self.device.set_nonblocking(False)
+            self._initialize_protocol()
+            self._last_heartbeat = time.monotonic()
 
             logger.info("HID device connected successfully")
             self.connection_established.emit()
@@ -109,6 +117,48 @@ class HIDReaderThread(QThread):
             self.device = None
             self._reconnect_attempts += 1
             return False
+
+    def _initialize_protocol(self):
+        """Arm the firmware wheel protocol after connection."""
+        if not self.device:
+            return
+
+        try:
+            self._send_command(CMD_SET_MODE, MODE_DEFAULT)
+            self._send_command(CMD_HEARTBEAT)
+        except Exception as e:
+            logger.warning(f"Failed to initialize HID protocol handshake: {e}")
+
+    def _send_command(self, command: int, *args: int):
+        """Send a host command packet to the firmware."""
+        packet = bytearray(32)
+        packet[0] = HID_CMD_MARKER
+        packet[1] = command
+        for index, value in enumerate(args[:29], start=2):
+            packet[index] = value & 0xFF
+        self._write_compat(bytes(packet))
+
+    def _send_heartbeat_if_needed(self):
+        """Keep the firmware wheel protocol armed while the app is attached."""
+        if not self.device:
+            return
+
+        now = time.monotonic()
+        if (now - self._last_heartbeat) >= self._heartbeat_interval:
+            self._send_command(CMD_HEARTBEAT)
+            self._last_heartbeat = now
+
+    def _write_compat(self, payload: bytes):
+        """Write HID packet while tolerating driver report-ID differences."""
+        if not self.device:
+            return
+        try:
+            self.device.write(payload)
+            return
+        except Exception:
+            pass
+        # Some HID stacks expect a report-id prefix (0x00).
+        self.device.write(bytes([0x00]) + payload)
 
     def _disconnect(self):
         """Disconnect from HID device"""
@@ -146,7 +196,7 @@ class HIDReaderThread(QThread):
         """Send data to HID device (called from main thread via queued connection)"""
         if self.device:
             try:
-                self.device.write(data)
+                self._write_compat(data)
             except Exception as e:
                 logger.error(f"HID write error: {e}")
 

@@ -13,7 +13,6 @@ import sys
 import math
 import json
 import os
-import ctypes
 from typing import Dict, Optional, List
 from dataclasses import dataclass
 
@@ -27,24 +26,13 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import (
     QPainter, QPainterPath, QColor, QBrush, QPen,
     QRadialGradient, QLinearGradient, QFont, QFontDatabase,
-    QCursor, QTextOption
+    QCursor, QTextOption, QFontMetrics, QGuiApplication
 )
 
 
-# Cursor hiding using Windows API
-def set_cursor_visibility(visible: bool):
-    """Hide/show cursor using Windows ShowCursor API"""
-    try:
-        if not visible:
-            # Decrement until hidden (count < 0)
-            while ctypes.windll.user32.ShowCursor(0) >= 0:
-                pass
-        else:
-            # Increment until visible (count >= 0)
-            while ctypes.windll.user32.ShowCursor(1) < 0:
-                pass
-    except Exception as e:
-        print(f"Error setting cursor visibility: {e}")
+# Cursor hiding is intentionally disabled:
+# Windows ShowCursor uses a process-global counter and can desync when
+# overlays/settings overlap, causing a stuck invisible cursor.
 
 
 @dataclass
@@ -172,14 +160,24 @@ class RadialWheelWidget(QWidget):
 
         self.follow_timer = QTimer()
         self.follow_timer.timeout.connect(self._follow_cursor)
-        self.follow_timer.setInterval(5) # Higher frequency to reduce lag (200fps)
+        self.follow_timer.setInterval(12)
 
         # Fonts
-        self.font_title = QFont("Segoe UI", 12, QFont.Weight.DemiBold)
-        self.font_option = QFont("Segoe UI", 10)
-        self.font_option_active = QFont("Segoe UI", 11, QFont.Weight.Medium)
-        self.font_icon = QFont("Segoe UI Emoji", 14)
-        self.font_small = QFont("Segoe UI", 9)
+        self.font_title = QFont("Bahnschrift SemiBold", 13)
+        self.font_option = QFont("Segoe UI Variable Text", 10)
+        self.font_option_active = QFont("Segoe UI Variable Text Semibold", 11)
+        self.font_icon = QFont("Segoe UI Emoji", 13)
+        self.font_small = QFont("Segoe UI Variable Small", 9)
+        self._last_cursor_pos: Optional[QPoint] = None
+        self.side_label_max_chars = 18
+        self.cursor_hidden = False
+        self.theme_override: Dict[str, str] = {}
+
+    def _theme_value(self, key: str):
+        """Read theme value with optional runtime override."""
+        if key in self.theme_override:
+            return self.theme_override[key]
+        return getattr(self.theme, key)
 
     def _get_scale(self) -> float:
         return self._scale
@@ -207,7 +205,30 @@ class RadialWheelWidget(QWidget):
         """Save current theme"""
         save_theme(name, self.theme)
 
-    def show_menu(self, display: Dict, progress: float = None, icons: Dict = None):
+    def _hide_cursor_for_menu(self):
+        if not self.cursor_hidden:
+            QApplication.setOverrideCursor(Qt.CursorShape.BlankCursor)
+            self.cursor_hidden = True
+
+    def _restore_cursor(self):
+        if not self.cursor_hidden:
+            return
+        # Balance any override cursor stack to avoid stuck hidden cursor.
+        while QApplication.overrideCursor() is not None:
+            QApplication.restoreOverrideCursor()
+        self.cursor_hidden = False
+
+    def ensure_cursor_visible(self):
+        self._restore_cursor()
+
+    def show_menu(
+        self,
+        display: Dict,
+        progress: float = None,
+        icons: Dict = None,
+        hide_cursor: bool = True,
+        theme_override: Dict[str, str] = None,
+    ):
         """Show the wheel menu"""
         self.options = [
             display.get('left', ''),
@@ -218,8 +239,9 @@ class RadialWheelWidget(QWidget):
         self.subtitle = display.get('subtitle', 'Double-tap to exit')
         self.active_index = display.get('active_index', 1)
         self.pulsing = display.get('pulsing', False)
-        self.progress = progress
+        self.progress = None if progress is None else max(0.0, min(1.0, progress))
         self.icons = icons or {}
+        self.theme_override = dict(theme_override or {})
 
         # Position at cursor
         cursor_pos = QCursor.pos()
@@ -238,11 +260,14 @@ class RadialWheelWidget(QWidget):
         self.follow_timer.start()
         if self.pulsing:
             self.pulse_timer.start()
+        else:
+            self.pulse_timer.stop()
 
         self.show()
-        # Hide cursor when menu is shown
-        QApplication.setOverrideCursor(Qt.CursorShape.BlankCursor)
-        set_cursor_visibility(False)
+        if hide_cursor:
+            self._hide_cursor_for_menu()
+        else:
+            self._restore_cursor()
 
     def hide_menu(self):
         """Hide with animation"""
@@ -258,13 +283,14 @@ class RadialWheelWidget(QWidget):
         self.follow_timer.stop()
         self.pulse_timer.stop()
         self.hide()
-        # Restore cursor when menu is hidden
-        QApplication.restoreOverrideCursor()
-        set_cursor_visibility(True)
+        self._restore_cursor()
 
     def _follow_cursor(self):
         """Keep centered on cursor"""
         cursor_pos = QCursor.pos()
+        if cursor_pos == self._last_cursor_pos:
+            return
+        self._last_cursor_pos = QPoint(cursor_pos)
         self.move(
             cursor_pos.x() - self.wheel_size // 2,
             cursor_pos.y() - self.wheel_size // 2
@@ -291,6 +317,7 @@ class RadialWheelWidget(QWidget):
         painter.translate(-self.center)
 
         # Draw layers
+        self._draw_backplate(painter)
         self._draw_glow(painter)
         self._draw_segments(painter)
         self._draw_hub(painter)
@@ -300,10 +327,23 @@ class RadialWheelWidget(QWidget):
         if self.subtitle and self._scale > 0.5:
             self._draw_subtitle(painter)
 
+    def _draw_backplate(self, painter: QPainter):
+        """Draw the translucent body behind the wheel."""
+        shell_color = QColor(self._theme_value('bg'))
+        shell_color.setAlphaF(float(self._theme_value('bg_alpha')))
+        shell_gradient = QRadialGradient(self.center, self.outer_radius + 26)
+        shell_gradient.setColorAt(0.0, shell_color.lighter(125))
+        shell_gradient.setColorAt(0.65, shell_color)
+        shell_gradient.setColorAt(1.0, QColor(shell_color.red(), shell_color.green(), shell_color.blue(), 0))
+
+        painter.setBrush(QBrush(shell_gradient))
+        painter.setPen(QPen(QColor(self._theme_value('border')), 1.5))
+        painter.drawEllipse(self.center, self.outer_radius + 18, self.outer_radius + 18)
+
     def _draw_glow(self, painter: QPainter):
         """Draw outer glow"""
         # Use glow color for the outer rings
-        glow_color = QColor(self.theme.glow)
+        glow_color = QColor(self._theme_value('glow'))
 
         for i in range(3):
             glow_color.setAlpha(40 - i * 12)
@@ -313,6 +353,133 @@ class RadialWheelWidget(QWidget):
 
             radius = self.outer_radius + 8 + i * 6
             painter.drawEllipse(self.center, radius, radius)
+
+    def _fit_label(self, font: QFont, text: str, width: int) -> str:
+        """Elide long labels based on actual font metrics."""
+        metrics = QFontMetrics(font)
+        return metrics.elidedText(text, Qt.TextElideMode.ElideRight, width)
+
+    def _fit_wrapped_label(
+        self,
+        base_font: QFont,
+        text: str,
+        width: int,
+        height: int,
+        min_point_size: int = 8,
+    ) -> QFont:
+        """Pick a font size that allows wrapped label text to fit inside a wedge."""
+        clean = " ".join((text or "").split())
+        if not clean:
+            return QFont(base_font)
+
+        option = QTextOption()
+        option.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        option.setWrapMode(QTextOption.WrapMode.WordWrap)
+
+        candidate = QFont(base_font)
+        for size in range(candidate.pointSize(), min_point_size - 1, -1):
+            candidate.setPointSize(size)
+            metrics = QFontMetrics(candidate)
+            bounds = metrics.boundingRect(
+                0,
+                0,
+                max(1, width),
+                max(1, height),
+                int(Qt.TextFlag.TextWordWrap),
+                clean,
+            )
+            if bounds.height() <= height and bounds.width() <= width:
+                return QFont(candidate)
+
+        candidate.setPointSize(min_point_size)
+        return candidate
+
+    def _wrap_label_lines(self, text: str, font: QFont, max_width: int, max_lines: int) -> str:
+        """Wrap label text into a bounded number of lines for wedge rendering."""
+        if not text:
+            return ""
+
+        # Improve break opportunities for common separator-heavy labels.
+        clean = " ".join(
+            text.replace("_", " ")
+            .replace("/", " / ")
+            .replace("-", "- ")
+            .split()
+        )
+        words = clean.split(" ")
+        metrics = QFontMetrics(font)
+
+        lines: List[str] = []
+        current = ""
+
+        for word in words:
+            if not word:
+                continue
+            candidate = word if not current else f"{current} {word}"
+            if metrics.horizontalAdvance(candidate) <= max_width:
+                current = candidate
+                continue
+
+            if current:
+                lines.append(current)
+            current = word
+
+            if len(lines) >= max_lines:
+                break
+
+        if current and len(lines) < max_lines:
+            lines.append(current)
+
+        if len(lines) > max_lines:
+            lines = lines[:max_lines]
+
+        # If original text still doesn't fit, elide the final line.
+        joined = " ".join(lines)
+        if joined != clean and lines:
+            lines[-1] = metrics.elidedText(lines[-1], Qt.TextElideMode.ElideRight, max_width)
+
+        return "\n".join(lines)
+
+    def _compact_side_label(self, text: str, max_chars: Optional[int] = None) -> str:
+        """Shorten verbose labels for side wedges where space is tighter."""
+        if not text:
+            return ""
+        if max_chars is None:
+            max_chars = int(self.side_label_max_chars)
+
+        compact = " ".join(text.split())
+        substitutions = {
+            "Context Commands": "Ctx Cmds",
+            "Context": "Ctx",
+            "Commands": "Cmds",
+            "Control": "Ctrl",
+            "Controls": "Ctrls",
+            "Settings": "Settings",
+            "Routing": "Route",
+            "Microphone": "Mic",
+            "Lighting": "Light",
+            "Voicemeeter": "VM",
+            "SignalRGB": "SRGB",
+            "Previous": "Prev",
+            "Volume": "Vol",
+        }
+        for old, new in substitutions.items():
+            compact = compact.replace(old, new)
+
+        # Drop low-signal filler words for side wedges.
+        fillers = {"the", "and", "for", "to", "of", "in", "on"}
+        parts = [p for p in compact.split() if p.lower() not in fillers]
+        compact = " ".join(parts) if parts else compact
+
+        # Keep side wedges concise and readable.
+        if len(compact) > max_chars:
+            compact = compact[: max_chars - 1].rstrip() + "…"
+        return compact
+
+    def set_side_label_max_chars(self, value: int):
+        """Update side-wedge compaction threshold."""
+        self.side_label_max_chars = max(10, min(28, int(value)))
+        self.update()
 
     def _draw_segments(self, painter: QPainter):
         """Draw wheel segments"""
@@ -326,17 +493,17 @@ class RadialWheelWidget(QWidget):
             if is_active and self.pulsing:
                 pulse = (math.sin(self._pulse_phase) + 1) / 2
                 bg_color = self._blend_colors(
-                    self.theme.segment_active,
-                    self.theme.accent_glow,
+                    self._theme_value('segment_active'),
+                    self._theme_value('accent_glow'),
                     pulse * 0.4
                 )
             elif is_active:
-                bg_color = QColor(self.theme.segment_active)
+                bg_color = QColor(self._theme_value('segment_active'))
             else:
-                bg_color = QColor(self.theme.segment_inactive)
+                bg_color = QColor(self._theme_value('segment_inactive'))
 
-            border_color = QColor(self.theme.accent if is_active else self.theme.border)
-            text_color = QColor(self.theme.text_active if is_active else self.theme.text_inactive)
+            border_color = QColor(self._theme_value('accent') if is_active else self._theme_value('border'))
+            text_color = QColor(self._theme_value('text_active') if is_active else self._theme_value('text_inactive'))
 
             # Create arc path
             path = self._create_arc_path(start_angle, span)
@@ -363,7 +530,7 @@ class RadialWheelWidget(QWidget):
             is_long_text = len(label_full) > 12
 
             base_radius = (self.inner_radius + self.outer_radius) / 2
-            text_radius = base_radius + 12 if is_long_text else base_radius
+            text_radius = base_radius + (8 if is_long_text else 0)
 
             text_x = self.center.x() + text_radius * math.cos(mid_angle)
             text_y = self.center.y() - text_radius * math.sin(mid_angle)
@@ -375,10 +542,9 @@ class RadialWheelWidget(QWidget):
             if icon:
                 painter.save()
                 if is_active:
-                     # Scale up active icon
-                     icon_cy = text_y + (-22 if not is_long_text else -18) + 12 # approx center
+                     icon_cy = text_y + (-22 if not is_long_text else -18) + 12
                      painter.translate(text_x, icon_cy)
-                     scale_factor = 1.1 + (0.05 * math.sin(self._pulse_phase)) # Breathing effect
+                     scale_factor = 1.08 + (0.04 * math.sin(self._pulse_phase))
                      painter.scale(scale_factor, scale_factor)
                      painter.translate(-text_x, -icon_cy)
 
@@ -393,28 +559,54 @@ class RadialWheelWidget(QWidget):
 
                 text_y += 8 if not is_long_text else 12
 
-            # Draw label
-            label = label_full
-            if len(label) > 18:
-                label = label[:17] + "…"
-
-            # Choose font based on length and state
+            # Draw wrapped label instead of clipping/ellipsis.
+            base_font = self.font_option_active if is_active else self.font_option
             if is_long_text:
-                font = self.font_small
+                base_font = QFont(self.font_small)
                 if is_active:
-                     # Create a bold version of small font
-                     font = QFont(self.font_small)
-                     font.setWeight(QFont.Weight.Medium)
-            else:
-                font = self.font_option_active if is_active else self.font_option
+                    base_font.setWeight(QFont.Weight.Medium)
 
+            is_center_wedge = (i == 1)
+            side_wedge = not is_center_wedge
+
+            # Side wedges are strongly curved; use a tighter single-line text lane.
+            rect_width = 136 if is_center_wedge else 104
+            rect_height = 56 if is_center_wedge else 24
+            text_rect = QRectF(
+                text_x - (rect_width / 2),
+                text_y - (rect_height / 2),
+                rect_width,
+                rect_height,
+            )
+
+            font = self._fit_wrapped_label(
+                base_font,
+                label_full,
+                int(rect_width - 8),
+                int(rect_height - 4),
+            )
             painter.setFont(font)
             painter.setPen(text_color)
 
-            # Wider rect for longer text
-            rect_width = 130 if is_long_text else 100
-            text_rect = QRectF(text_x - (rect_width/2), text_y - 10, rect_width, 20)
-            painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, label)
+            label_text = label_full
+            if side_wedge:
+                label_text = self._compact_side_label(label_full)
+                # Move side text slightly inward where wedge width is more stable.
+                text_rect.translate(0, 2)
+
+            wrapped = self._wrap_label_lines(
+                label_text,
+                font,
+                int(rect_width - 10),
+                3 if is_center_wedge else 1,
+            )
+
+            flags = (
+                Qt.AlignmentFlag.AlignHCenter
+                | Qt.AlignmentFlag.AlignVCenter
+                | Qt.TextFlag.TextWordWrap
+            )
+            painter.drawText(text_rect, flags, wrapped)
 
             # Restore painter state (removes clip)
             painter.restore()
@@ -468,21 +660,22 @@ class RadialWheelWidget(QWidget):
         """Draw center hub"""
         # Hub background with gradient
         hub_gradient = QRadialGradient(self.center, self.hub_radius)
-        bg_color = QColor(self.theme.bg)
-        hub_gradient.setColorAt(0, bg_color.lighter(130))
+        bg_color = QColor(self._theme_value('bg'))
+        bg_color.setAlphaF(min(1.0, float(self._theme_value('bg_alpha')) + 0.03))
+        hub_gradient.setColorAt(0, bg_color.lighter(135))
         hub_gradient.setColorAt(1, bg_color)
 
         painter.setBrush(QBrush(hub_gradient))
-        painter.setPen(QPen(QColor(self.theme.border), 2))
+        painter.setPen(QPen(QColor(self._theme_value('border')), 2))
         painter.drawEllipse(self.center, self.hub_radius, self.hub_radius)
 
         # Center dot with glow
         dot_radius = 6
-        accent = QColor(self.theme.accent)
-        accent_glow = QColor(self.theme.accent_glow)
+        accent = QColor(self._theme_value('accent'))
+        accent_glow = QColor(self._theme_value('accent_glow'))
 
         # Glow
-        glow_gradient = QRadialGradient(self.center, self.hub_radius*0.7) # Larger glow area
+        glow_gradient = QRadialGradient(self.center, self.hub_radius*0.7)
         accent_glow.setAlpha(100)
         glow_gradient.setColorAt(0, accent_glow)
         glow_gradient.setColorAt(1, QColor(0, 0, 0, 0))
@@ -506,7 +699,7 @@ class RadialWheelWidget(QWidget):
 
         # Background ring
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.setPen(QPen(QColor(self.theme.progress_bg), ring_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        painter.setPen(QPen(QColor(self._theme_value('progress_bg')), ring_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
         painter.drawEllipse(self.center, ring_radius, ring_radius)
 
         # Progress arc
@@ -534,7 +727,7 @@ class RadialWheelWidget(QWidget):
                     progress_color = QColor(r, g, b)
             else:
                 # Use accent color for non-audio progress rings
-                progress_color = QColor(self.theme.accent)
+                progress_color = QColor(self._theme_value('accent'))
 
             painter.setPen(QPen(progress_color, ring_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
 
@@ -563,7 +756,7 @@ class RadialWheelWidget(QWidget):
         indicator_width = 4
 
         # Background arc (full circle)
-        bg_color = QColor(self.theme.progress_bg)
+        bg_color = QColor(self._theme_value('progress_bg'))
         bg_color.setAlpha(80)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.setPen(QPen(bg_color, indicator_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
@@ -571,7 +764,7 @@ class RadialWheelWidget(QWidget):
 
         # Progress arc - starts at top (90°) and fills clockwise
         if self.progress > 0:
-            accent_color = QColor(self.theme.accent)
+            accent_color = QColor(self._theme_value('accent'))
             accent_color.setAlpha(220)
             painter.setPen(QPen(accent_color, indicator_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
 
@@ -593,17 +786,18 @@ class RadialWheelWidget(QWidget):
             return
 
         painter.setFont(self.font_title)
-        painter.setPen(QColor(self.theme.text_active))
+        title_color = QColor(self._theme_value('text_active'))
+        title_color.setAlpha(235)
+        painter.setPen(title_color)
 
-        title_rect = QRectF(0, self.center.y() - self.outer_radius - 35, self.wheel_size, 25)
-        painter.drawText(title_rect, Qt.AlignmentFlag.AlignCenter, self.title)
+        title_rect = QRectF(32, self.center.y() - self.outer_radius - 46, self.wheel_size - 64, 28)
+        painter.drawText(title_rect, Qt.AlignmentFlag.AlignCenter, self._fit_label(self.font_title, self.title, int(title_rect.width())))
 
     def _draw_subtitle(self, painter: QPainter):
         """Draw subtitle in the bottom free space of the wheel"""
         if not self.subtitle:
             return
 
-        # Use slightly larger font than before since we have more space
         font = QFont(self.font_small)
         font.setPointSize(9)
         painter.setFont(font)
@@ -612,15 +806,11 @@ class RadialWheelWidget(QWidget):
         hint_color.setAlpha(int(255 * min(1.0, (self._scale - 0.5) * 2)))
         painter.setPen(hint_color)
 
-        # Position in the bottom gap between Left and Right wedges
-        # Center Y is self.center.y()
-        # Hub is 45, Outer is 130
-        # We target the area around y + 85
         subtitle_rect = QRectF(
-            self.center.x() - 60,
-            self.center.y() + 75,  # Moved down from previous y+15
-            120,
-            40
+            self.center.x() - 78,
+            self.center.y() + 72,
+            156,
+            42
         )
 
         # Word wrap if needed
@@ -650,12 +840,17 @@ class QtOverlayManager:
 
     def __init__(self, theme: str = 'DARK'):
         self.widget: Optional[RadialWheelWidget] = None
+        self.status_widget: Optional['StatusPillWidget'] = None
         self.theme = theme
         self.hide_timer: Optional[QTimer] = None
+        self._status_text: str = ""
+        self._status_visible: bool = True
+        self._status_update_seq: int = 0
 
     def start(self):
         """Initialize widget"""
         self.widget = RadialWheelWidget(self.theme)
+        self.status_widget = StatusPillWidget()
         self.hide_timer = QTimer()
         self.hide_timer.setSingleShot(True)
         self.hide_timer.timeout.connect(self._do_hide)
@@ -670,19 +865,31 @@ class QtOverlayManager:
         if self.widget:
             QTimer.singleShot(0, lambda: self.widget.update_theme_colors(settings))
 
+    def set_side_label_max_chars(self, value: int):
+        """Set side wedge label length preference (thread-safe)."""
+        if self.widget:
+            QTimer.singleShot(0, lambda: self.widget.set_side_label_max_chars(value))
+
     def save_theme(self, name: str):
         """Save theme to file (thread-safe)"""
         if self.widget:
             QTimer.singleShot(0, lambda: self.widget.save_current_theme(name))
 
-    def show_menu(self, display: Dict, progress: float = None, icons: Dict = None):
+    def show_menu(
+        self,
+        display: Dict,
+        progress: float = None,
+        icons: Dict = None,
+        hide_cursor: bool = True,
+        theme_override: Dict[str, str] = None,
+    ):
         """Show menu (thread-safe)"""
         if not self.widget:
             return
 
         def _show():
             self.hide_timer.stop()
-            self.widget.show_menu(display, progress, icons)
+            self.widget.show_menu(display, progress, icons, hide_cursor=hide_cursor, theme_override=theme_override)
 
         QTimer.singleShot(0, _show)
 
@@ -694,6 +901,12 @@ class QtOverlayManager:
     def _do_hide(self):
         if self.widget and self.widget.isVisible():
             self.widget.hide_menu()
+        elif self.widget:
+            self.widget.ensure_cursor_visible()
+
+    def ensure_cursor_visible(self):
+        if self.widget:
+            QTimer.singleShot(0, self.widget.ensure_cursor_visible)
 
     def show_notification(self, message: str, duration_ms: int = 1500):
         """Show notification (thread-safe)"""
@@ -708,10 +921,81 @@ class QtOverlayManager:
                 'right': '',
                 'subtitle': ''
             }
-            self.widget.show_menu(display)
+            self.widget.show_menu(display, hide_cursor=False)
             self.hide_timer.start(duration_ms)
 
         QTimer.singleShot(0, _show_notif)
+
+    def set_status(self, text: str, visible: bool = True):
+        """Show/hide persistent status pill."""
+        if not self.status_widget:
+            return
+        self._status_text = str(text or "")
+        self._status_visible = bool(visible)
+        self._status_update_seq += 1
+        seq = self._status_update_seq
+
+        def _set():
+            # Drop stale queued updates; latest call wins.
+            if seq != self._status_update_seq:
+                return
+            if not visible:
+                self.status_widget.set_text("")
+                self.status_widget.hide()
+                return
+            self.status_widget.set_text(self._status_text)
+            self.status_widget.show()
+
+        QTimer.singleShot(0, _set)
+
+
+class StatusPillWidget(QWidget):
+    """Small always-on-top status pill (profile/mode indicator)."""
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        self._text = ""
+        self._font = QFont("Segoe UI Variable Text", 9)
+        self._padding_x = 10
+        self._height = 24
+        self._margin = 16
+        self.setFixedHeight(self._height)
+
+    def set_text(self, text: str):
+        self._text = str(text or "").strip()
+        metrics = QFontMetrics(self._font)
+        text_w = metrics.horizontalAdvance(self._text) if self._text else 0
+        width = max(140, min(520, text_w + (self._padding_x * 2)))
+        self.resize(width, self._height)
+
+        screen = QGuiApplication.primaryScreen()
+        if screen:
+            geo = screen.availableGeometry()
+            self.move(geo.right() - width - self._margin, geo.top() + self._margin)
+        self.update()
+
+    def paintEvent(self, event):
+        if not self._text:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        bg = QColor(17, 22, 31, 214)
+        border = QColor(69, 95, 138, 220)
+        text = QColor(233, 241, 255, 240)
+        rect = self.rect().adjusted(1, 1, -1, -1)
+        painter.setBrush(bg)
+        painter.setPen(QPen(border, 1.2))
+        painter.drawRoundedRect(rect, 10, 10)
+        painter.setFont(self._font)
+        painter.setPen(text)
+        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, self._text)
 
 
 # Wrapper class matching the Tkinter interface
@@ -733,17 +1017,33 @@ class EnhancedUIManager:
     def update_theme_color(self, settings: Dict[str, str]):
         self.qt_manager.update_theme_color(settings)
 
+    def set_side_label_max_chars(self, value: int):
+        self.qt_manager.set_side_label_max_chars(value)
+
     def save_theme(self, name: str):
         self.qt_manager.save_theme(name)
 
-    def show_menu(self, display: Dict, progress: float = None, icons: Dict = None):
-        self.qt_manager.show_menu(display, progress, icons)
+    def show_menu(
+        self,
+        display: Dict,
+        progress: float = None,
+        icons: Dict = None,
+        hide_cursor: bool = True,
+        theme_override: Dict[str, str] = None,
+    ):
+        self.qt_manager.show_menu(display, progress, icons, hide_cursor=hide_cursor, theme_override=theme_override)
 
     def hide_menu(self):
         self.qt_manager.hide_menu()
 
+    def ensure_cursor_visible(self):
+        self.qt_manager.ensure_cursor_visible()
+
     def show_notification(self, message: str, duration_ms: int = 1500):
         self.qt_manager.show_notification(message, duration_ms)
+
+    def set_status(self, text: str, visible: bool = True):
+        self.qt_manager.set_status(text, visible=visible)
 
     def quit(self):
         pass  # Qt app handles quit

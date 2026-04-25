@@ -1,0 +1,183 @@
+{
+    "layers": [
+        {
+            "name": "Main",
+            "slots": [
+                {
+                    "icon": "\ud83c\udf99",
+                    "name": "Discord Mute",
+                    "action": {
+                        "type": "hotkey",
+                        "keys": "ctrl+shift+m"
+                    }
+                },
+                {
+                    "icon": "\ud83d\udd07",
+                    "name": "Discord Deafen",
+                    "action": {
+                        "type": "hotkey",
+                        "keys": "ctrl+shift+d"
+                    }
+                },
+                {
+                    "icon": "\u23fa",
+                    "name": "OBS Record",
+                    "action": {
+                        "type": "hotkey",
+                        "keys": "ctrl+shift+r"
+                    }
+                },
+                {
+                    "icon": "\ud83d\udce1",
+                    "name": "OBS Stream",
+                    "action": {
+                        "type": "hotkey",
+                        "keys": "ctrl+shift+s"
+                    }
+                },
+                {
+                    "icon": "\ud83c\udfae",
+                    "name": "Steam",
+                    "action": {
+                        "type": "url",
+                        "url": "steam://open/library"
+                    }
+                },
+                {
+                    "icon": "\ud83c\udf08",
+                    "name": "SignalRGB",
+                    "action": {
+                        "type": "url",
+                        "url": "signalrgb://"
+                    }
+                },
+                {
+                    "icon": "\ud83e\uddea",
+                    "name": "Launch Notepad",
+                    "action": {
+                        "type": "shell",
+                        "command": "start notepad"
+                    }
+                },
+                {
+                    "icon": "\ud83d\udcdd",
+                    "name": "Paste Date",
+                    "action": {
+                        "type": "sequence",
+                        "steps": [
+                            {
+                                "type": "text",
+                                "text": "{DATE}"
+                            },
+                            {
+                                "type": "hotkey",
+                                "keys": "enter"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "icon": "\ud83d\udd12",
+                    "name": "Lock PC",
+                    "action": {
+                        "type": "hotkey",
+                        "keys": "windows+l"
+                    }
+                },
+                {
+                    "icon": "\u2699",
+                    "name": "Open Settings",
+                    "action": {
+                        "type": "shell",
+                        "command": "start ms-settings:"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Media",
+            "slots": [
+                {
+                    "icon": "\u23ee",
+                    "name": "Prev Track",
+                    "action": {
+                        "type": "media",
+                        "command": "prev"
+                    }
+                },
+                {
+                    "icon": "\u23ef",
+                    "name": "Play/Pause",
+                    "action": {
+                        "type": "media",
+                        "command": "play_pause"
+                    }
+                },
+                {
+                    "icon": "\u23ed",
+                    "name": "Next Track",
+                    "action": {
+                        "type": "media",
+                        "command": "next"
+                    }
+                },
+                {
+                    "icon": "\ud83d\udd09",
+                    "name": "Vol Down",
+                    "action": {
+                        "type": "hotkey",
+                        "keys": "volume down"
+                    }
+                },
+                {
+                    "icon": "\ud83d\udd0a",
+                    "name": "Vol Up",
+                    "action": {
+                        "type": "hotkey",
+                        "keys": "volume up"
+                    }
+                },
+                {
+                    "icon": "\ud83d\udd15",
+                    "name": "Mute",
+                    "action": {
+                        "type": "hotkey",
+                        "keys": "volume mute"
+                    }
+                },
+                {
+                    "icon": "\ud83d\udfe9",
+                    "name": "Clipboard 1",
+                    "action": {
+                        "type": "text",
+                        "text": "Hello from Macro Mode"
+                    }
+                },
+                {
+                    "icon": "\ud83d\udfe6",
+                    "name": "Clipboard 2",
+                    "action": {
+                        "type": "text",
+                        "text": "Secondary text macro"
+                    }
+                },
+                {
+                    "icon": "\ud83d\udfea",
+                    "name": "Browser",
+                    "action": {
+                        "type": "url",
+                        "url": "https://www.google.com"
+                    }
+                },
+                {
+                    "icon": "\ud83d\udfe5",
+                    "name": "Terminal",
+                    "action": {
+                        "type": "shell",
+                        "command": "start wt"
+                    }
+                }
+            ]
+        }
+    ]
+}

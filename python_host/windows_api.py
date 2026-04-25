@@ -11,7 +11,7 @@ Requirements:
 """
 
 import sys
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict, Any
 from dataclasses import dataclass
 
 
@@ -38,6 +38,13 @@ class VolumeControl:
         except Exception as e:
             print(f"[WARN] Volume control not available: {e}")
             self.available = False
+
+    def _get_audio_utilities(self):
+        try:
+            from pycaw.pycaw import AudioUtilities
+            return AudioUtilities
+        except Exception:
+            return None
 
     def get_volume(self) -> int:
         """Get current volume (0-100)"""
@@ -85,6 +92,80 @@ class VolumeControl:
     def toggle_mute(self):
         """Toggle mute"""
         self.set_mute(not self.get_mute())
+
+    def get_app_sessions(self) -> List[Dict[str, Any]]:
+        """Return active per-app audio sessions."""
+        util = self._get_audio_utilities()
+        if util is None:
+            return []
+        sessions = []
+        try:
+            for s in util.GetAllSessions():
+                if not s or not s.SimpleAudioVolume:
+                    continue
+                process = getattr(s, "Process", None)
+                name = ""
+                pid = 0
+                if process is not None:
+                    try:
+                        name = str(process.name() or "")
+                        pid = int(process.pid or 0)
+                    except Exception:
+                        pass
+                if not name:
+                    # Skip anonymous/system session noise for mixer UX.
+                    continue
+                vol = 0
+                muted = False
+                try:
+                    vol = int(float(s.SimpleAudioVolume.GetMasterVolume()) * 100.0)
+                except Exception:
+                    pass
+                try:
+                    muted = bool(s.SimpleAudioVolume.GetMute())
+                except Exception:
+                    pass
+                sessions.append({
+                    "id": f"{name.lower()}:{pid}",
+                    "name": name,
+                    "pid": pid,
+                    "volume": max(0, min(100, vol)),
+                    "muted": muted,
+                    "session": s,
+                })
+        except Exception:
+            return []
+        sessions.sort(key=lambda x: (x["name"].lower(), x["pid"]))
+        return sessions
+
+    def set_app_volume(self, session_obj: Any, percent: int) -> bool:
+        if not session_obj:
+            return False
+        try:
+            p = max(0, min(100, int(percent)))
+            session_obj.SimpleAudioVolume.SetMasterVolume(p / 100.0, None)
+            return True
+        except Exception:
+            return False
+
+    def adjust_app_volume(self, session_obj: Any, delta: int) -> bool:
+        if not session_obj:
+            return False
+        try:
+            current = int(float(session_obj.SimpleAudioVolume.GetMasterVolume()) * 100.0)
+            return self.set_app_volume(session_obj, current + int(delta))
+        except Exception:
+            return False
+
+    def toggle_app_mute(self, session_obj: Any) -> bool:
+        if not session_obj:
+            return False
+        try:
+            muted = bool(session_obj.SimpleAudioVolume.GetMute())
+            session_obj.SimpleAudioVolume.SetMute(0 if muted else 1, None)
+            return True
+        except Exception:
+            return False
 
 
 # ============================================================================

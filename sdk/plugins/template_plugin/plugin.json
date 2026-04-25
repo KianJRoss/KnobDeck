@@ -1,0 +1,23 @@
+﻿{
+    "name": "Template Plugin",
+    "version": "0.1.0",
+    "author": "Your Name",
+    "description": "Starter plugin template for custom commands.",
+    "settings_schema": [
+        {
+            "key": "enabled",
+            "type": "bool",
+            "default": true
+        },
+        {
+            "key": "command_name",
+            "type": "string",
+            "default": "Template Action"
+        },
+        {
+            "key": "hotkey",
+            "type": "string",
+            "default": "ctrl+alt+t"
+        }
+    ]
+}

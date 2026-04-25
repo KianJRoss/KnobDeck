@@ -15,8 +15,8 @@ from enum import Enum, auto
 
 # Protocol constants (must match firmware)
 HID_CMD_MARKER = 0xFE
-CMD_LED_MODE = 0x01
-CMD_LED_COLOR = 0x02
+CMD_LED_MODE = 0x10
+CMD_LED_COLOR = 0x11
 
 
 class LEDMode(Enum):

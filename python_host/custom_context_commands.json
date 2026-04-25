@@ -1,0 +1,52 @@
+{
+    "rules": [
+        {
+            "name": "Discord Quick Actions",
+            "processes": [
+                "discord.exe"
+            ],
+            "window_title_contains": [],
+            "match_any": true,
+            "commands": [
+                {
+                    "name": "Open Discord Sound Settings",
+                    "description": "Open Discord voice settings page",
+                    "icon": "DS",
+                    "action": {
+                        "type": "url",
+                        "url": "discord://-/settings/voice"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "VS Code Tools",
+            "processes": [
+                "code.exe",
+                "cursor.exe"
+            ],
+            "window_title_contains": [],
+            "match_any": true,
+            "commands": [
+                {
+                    "name": "Open Project Terminal",
+                    "description": "Launch Windows Terminal",
+                    "icon": "WT",
+                    "action": {
+                        "type": "shell",
+                        "command": "start wt"
+                    }
+                },
+                {
+                    "name": "Format Document",
+                    "description": "Send Shift+Alt+F",
+                    "icon": "FMT",
+                    "action": {
+                        "type": "hotkey",
+                        "hotkey": "shift+alt+f"
+                    }
+                }
+            ]
+        }
+    ]
+}

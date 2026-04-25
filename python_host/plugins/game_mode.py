@@ -12,6 +12,7 @@ import win32con
 import pywintypes
 
 logger = logging.getLogger("KeychronApp.GameMode")
+state_machine_ref = None
 
 # Windows API structures and constants
 class DEVMODE(ctypes.Structure):
@@ -188,7 +189,7 @@ def toggle_game_mode():
         disabled_monitors = []
         game_mode_active = False
         logger.info("Game mode OFF")
-        return "Game Mode: OFF"
+        return "Game Mode OFF: all disabled monitors restored"
     else:
         # Disable bottom two monitors
         logger.info("Entering game mode - disabling bottom two monitors...")
@@ -196,7 +197,7 @@ def toggle_game_mode():
 
         if len(monitors) <= 2:
             logger.warning("Not enough monitors to enable game mode (need at least 3)")
-            return "Need 3+ monitors"
+            return "Game Mode unavailable: need at least 3 active monitors"
 
         # Disable the bottom two (first two after sorting by Y position descending)
         disabled_monitors = []
@@ -210,10 +211,14 @@ def toggle_game_mode():
         if disabled_monitors:
             game_mode_active = True
             logger.info("Game mode ON")
-            return "Game Mode: ON"
+            return f"Game Mode ON: disabled {len(disabled_monitors)} bottom monitor(s)"
         else:
             logger.error("Failed to disable any monitors")
-            return "Game Mode: FAILED"
+            return "Game Mode failed: no monitors were disabled"
+
+
+def get_game_mode_state() -> str:
+    return "ON" if game_mode_active else "OFF"
 
 # Plugin interface
 def get_commands():
@@ -221,7 +226,21 @@ def get_commands():
     return [
         {
             "name": "Game Mode",
-            "description": "Toggle bottom monitors on/off",
-            "callback": toggle_game_mode
+            "description": "Disable bottom monitors for gaming (status shown in notification)",
+            "callback": _toggle_game_mode_with_feedback
         }
     ]
+
+
+def _toggle_game_mode_with_feedback():
+    global state_machine_ref
+    message = toggle_game_mode()
+    if state_machine_ref is not None:
+        state_machine_ref.show_notification(message, 1800)
+    return message
+
+
+def get_mode_handlers(state_machine):
+    global state_machine_ref
+    state_machine_ref = state_machine
+    return {}

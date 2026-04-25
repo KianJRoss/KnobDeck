@@ -1,0 +1,17 @@
+﻿{
+  "name": "Integrations",
+  "version": "1.0.0",
+  "author": "KnobDeck",
+  "description": "Discord, OBS, Steam, and SignalRGB quick actions.",
+  "settings_schema": [
+    {"key": "discord_mute_hotkey", "type": "string", "default": "ctrl+shift+m"},
+    {"key": "discord_deafen_hotkey", "type": "string", "default": "ctrl+shift+d"},
+    {"key": "discord_overlay_hotkey", "type": "string", "default": "shift+`"},
+    {"key": "obs_record_hotkey", "type": "string", "default": "ctrl+shift+r"},
+    {"key": "obs_stream_hotkey", "type": "string", "default": "ctrl+shift+s"},
+    {"key": "steam_library_url", "type": "string", "default": "steam://open/library"},
+    {"key": "steam_friends_url", "type": "string", "default": "steam://open/friends"},
+    {"key": "steam_screenshots_url", "type": "string", "default": "steam://open/screenshots"}
+  ]
+}
+

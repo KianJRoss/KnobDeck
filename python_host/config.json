@@ -1,19 +1,126 @@
 {
+  "keyboard_profile_id": "default_qmk_knob",
+  "hid": {
     "vendor_id": 13364,
     "product_id": 785,
     "usage_page": 65376,
-    "timeout_ms": 100,
-    "reconnect_interval": 2.0,
-    "max_reconnect_attempts": 30,
-    "ui_theme": "VIOLET",
-    "use_enhanced_ui": true,
-    "led_feedback": true,
-    "log_level": "INFO",
-    "log_file": "keychron_app.log",
-    "hid": {
-        "vendor_id": 13364,
-        "product_id": 785,
-        "usage_page": 65376,
-        "usage": 97
+    "usage": 97
+  },
+  "ui_theme": "DARK",
+  "use_enhanced_ui": true,
+  "led_feedback": false,
+  "voicemeeter_state": {},
+  "app_settings": {
+    "menu_timeout_ms": 3000,
+    "double_click_ms": 300,
+    "volume_step": 2,
+    "quick_volume_hide_ms": 800,
+    "triple_click_settings_enabled": true,
+    "triple_click_window_ms": 700,
+    "side_label_max_chars": 18,
+    "lighting_backend": "signalrgb",
+    "macro_mode_enabled": true,
+    "enable_voicemeeter_integration": true,
+    "enable_plugin_integrations": true,
+    "enable_context_commands": true,
+    "plugin_hot_reload_enabled": true,
+    "auto_profile_switch_enabled": true,
+    "show_status_indicator": true,
+    "show_onboarding_on_start": true,
+    "onboarding_completed": false,
+    "active_profile_name": "Default",
+    "profiles": [
+      {
+        "name": "Default",
+        "priority": 0,
+        "theme": "",
+        "command_order": [],
+        "command_hidden": [],
+        "macro_layer": null,
+        "auto_switch": {}
+      },
+      {
+        "name": "Browser",
+        "priority": 10,
+        "theme": "",
+        "command_order": [],
+        "command_hidden": [],
+        "macro_layer": null,
+        "auto_switch": {
+          "process_regex": "^(chrome|msedge|firefox|brave|opera)\\\\.exe$"
+        }
+      },
+      {
+        "name": "Studio",
+        "priority": 20,
+        "theme": "",
+        "command_order": [],
+        "command_hidden": [],
+        "macro_layer": null,
+        "auto_switch": {
+          "process_regex": "^(obs64|voicemeeter\\\\w*)\\\\.exe$"
+        }
+      }
+    ],
+    "notifications_enabled": true,
+    "submenu_timeout_enabled": true,
+    "restore_voicemeeter_on_start": false,
+    "voicemeeter_profile": {
+      "mic_strip": 0,
+      "main_strip": 5,
+      "music_strip": 6,
+      "comm_strip": 7,
+      "variant": "potato",
+      "active_outputs": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "B1",
+        "B2",
+        "B3"
+      ],
+      "output_names": {
+        "A1": "Speakers",
+        "A2": "Wired",
+        "A3": "Wireless",
+        "A4": "Alt 1",
+        "A5": "Alt 2",
+        "B1": "Virtual Out 1",
+        "B2": "Virtual Out 2",
+        "B3": "Virtual Out 3"
+      },
+      "output_icons": {
+        "A1": "SPK",
+        "A2": "WIR",
+        "A3": "WLS",
+        "A4": "A4",
+        "A5": "A5",
+        "B1": "B1",
+        "B2": "B2",
+        "B3": "B3"
+      }
+    },
+    "plugin_dirs": [
+      "custom_plugins"
+    ],
+    "plugin_settings": {},
+    "disabled_plugins_auto": [],
+    "command_order": [],
+    "command_hidden": [],
+    "mode_timeout_ms": {
+      "VOLUME_MIXER": 5000,
+      "RECENT_ACTIONS": 5000,
+      "VOICEMEETER_MENU": 5000,
+      "VM_MIC": 5000,
+      "VM_MAIN_ROUTING": 5000,
+      "VM_MUSIC_GAIN": 5000,
+      "VM_MUSIC_ROUTING": 5000,
+      "VM_COMM_GAIN": 5000,
+      "VM_COMM_ROUTING": 5000,
+      "LIGHTING_MENU": 5000,
+      "LIGHTING_EFFECTS": 8000
     }
+  }
 }

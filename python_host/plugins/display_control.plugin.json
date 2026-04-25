@@ -1,0 +1,8 @@
+﻿{
+  "name": "Display Control",
+  "version": "1.0.0",
+  "author": "KnobDeck",
+  "description": "Brightness, display mode, and monitor toggles.",
+  "settings_schema": []
+}
+

@@ -32,11 +32,11 @@ $WshShell = New-Object -ComObject WScript.Shell
 $ShortcutPath = Join-Path ([Environment]::GetFolderPath("Desktop")) "Keychron Menu.lnk"
 $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
 $Shortcut.TargetPath = Join-Path $VenvDir "Scripts\pythonw.exe"  # pythonw hides the console
-$Shortcut.Arguments = "`"$(Join-Path $PythonHostDir 'keychron_app.py')`""
+$Shortcut.Arguments = "`"$(Join-Path $PythonHostDir 'keychron_app_qt.py')`""
 $Shortcut.WorkingDirectory = $PythonHostDir
 $Shortcut.IconLocation = "shell32.dll,44" # Keyboard icon
 $Shortcut.Save()
 
 Write-Host "`nInstallation complete!" -ForegroundColor Green
 Write-Host "You can now launch the system from the 'Keychron Menu' shortcut on your Desktop."
-Write-Host "Note: Ensure your keyboard is flashed with the Raw HID firmware."
+Write-Host "Note: Flash the raw_hid_menu keymap to keep VIA key/lighting control while knob events drive the menu app."
