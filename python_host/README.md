@@ -1,4 +1,4 @@
-﻿# KnobDeck Host App (Python/Qt)
+# KnobDeck Host App (Python/Qt)
 
 KnobDeck is a Windows desktop app for knob-equipped keyboards.
 
@@ -47,7 +47,15 @@ Template files:
 - PyInstaller spec: `build/windows/KnobDeck.spec`
 - Inno Setup script: `build/windows/installer.iss`
 - Local build script: `build/windows/build_release.ps1`
-- CI workflow: `.github/workflows/windows-release.yml`
+- CI workflows:
+  - `.github/workflows/windows-release.yml`
+  - `.github/workflows/smoke-tests.yml`
+
+## Dependency Files
+
+- Runtime: `requirements.txt`
+- Build-only: `requirements-build.txt`
+- Locked baseline: `requirements-lock.txt`
 
 ## Docs Site
 

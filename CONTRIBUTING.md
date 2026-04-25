@@ -1,4 +1,4 @@
-﻿# Contributing
+# Contributing
 
 Thanks for contributing to KnobDeck.
 
@@ -15,6 +15,11 @@ python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 python knobdeck_app.py --no-detach
+```
+
+## Validation Before PR
+```powershell
+python -m compileall python_host/*.py python_host/plugins/*.py python_host/custom_plugins/*.py
 ```
 
 ## Pull Request Rules

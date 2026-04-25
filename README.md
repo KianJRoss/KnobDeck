@@ -1,4 +1,4 @@
-﻿# KnobDeck
+# KnobDeck
 
 KnobDeck is an open-source platform for encoder/knob keyboards.
 
@@ -16,6 +16,7 @@ It provides:
 - `sdk/firmware/` - firmware bridge templates for QMK boards
 - `docs-site/` - GitHub Pages static website
 - `.github/workflows/windows-release.yml` - build portable + installer artifacts
+- `.github/workflows/smoke-tests.yml` - CI smoke checks for host runtime
 - `.github/workflows/pages.yml` - deploy docs site
 
 ## Install (EXE)
@@ -24,7 +25,13 @@ Use the Windows installer from Releases:
 - `KnobDeck-Setup-<version>.exe`
 - https://github.com/KianJRoss/KnobDeck/releases
 
-Build locally:
+Download latest installer directly from source checkout:
+
+```bat
+download_installer.bat
+```
+
+Build installer locally:
 
 ```bat
 build_installer.bat
