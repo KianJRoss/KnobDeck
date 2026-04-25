@@ -12,12 +12,12 @@ AppPublisher={#AppPublisher}
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 AllowNoIcons=yes
-OutputDir=dist\installer
+OutputDir=..\..\dist\installer
 OutputBaseFilename=KnobDeck-Setup-{#AppVersion}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-SetupIconFile=dist\KnobDeck\assets\knobdeck.ico
+SetupIconFile=..\..\dist\KnobDeck\assets\knobdeck.ico
 UninstallDisplayIcon={app}\assets\knobdeck.ico
 
 [Languages]
@@ -27,7 +27,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
 
 [Files]
-Source: "dist\KnobDeck\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+Source: "..\..\dist\KnobDeck\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
