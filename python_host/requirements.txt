@@ -14,7 +14,7 @@ comtypes>=1.2.0
 
 # System tray icon
 pystray>=0.19.0
-Pillow>=10.0.0
+Pillow>=12.2.0
 
 # Process and system utilities (for context detection)
 psutil>=5.9.0
