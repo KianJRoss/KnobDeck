@@ -14,8 +14,9 @@ It provides:
 - `python_host/` - main desktop app (PyQt6)
 - `sdk/plugins/` - plugin starter templates
 - `sdk/firmware/` - firmware bridge templates for QMK boards
+- `packaging/winget/` - winget manifest scaffold templates
 - `docs-site/` - GitHub Pages static website
-- `.github/workflows/windows-release.yml` - build portable + installer artifacts
+- `.github/workflows/windows-release.yml` - build portable + installer + checksums
 - `.github/workflows/smoke-tests.yml` - CI smoke checks for host runtime
 - `.github/workflows/pages.yml` - deploy docs site
 
@@ -41,6 +42,15 @@ Build env notes:
 - Runtime deps: `python_host/requirements.txt`
 - Build deps: `python_host/requirements-build.txt`
 - Pinned baseline: `python_host/requirements-lock.txt`
+
+## Release Integrity
+
+Each tagged release now includes:
+- installer `.exe`
+- portable `.zip`
+- `SHA256SUMS.txt`
+
+Use `SHA256SUMS.txt` to verify downloaded assets before install.
 
 ## Start App
 

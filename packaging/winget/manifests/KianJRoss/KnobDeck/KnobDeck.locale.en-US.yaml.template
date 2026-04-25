@@ -1,0 +1,23 @@
+PackageIdentifier: KianJRoss.KnobDeck
+PackageVersion: __VERSION__
+PackageLocale: en-US
+Publisher: KianJRoss
+PublisherUrl: https://github.com/KianJRoss
+PublisherSupportUrl: https://github.com/KianJRoss/KnobDeck/issues
+Author: Kian Ross
+PackageName: KnobDeck
+PackageUrl: https://github.com/KianJRoss/KnobDeck
+License: MIT
+LicenseUrl: https://github.com/KianJRoss/KnobDeck/blob/main/LICENSE
+ShortDescription: Radial menu and macro platform for knob-equipped keyboards.
+Description: KnobDeck is an open-source Windows app for encoder/knob keyboards with macros, plugin integrations, and lighting controls.
+Moniker: knobdeck
+Tags:
+  - keyboard
+  - macro
+  - encoder
+  - qmk
+  - via
+ReleaseNotesUrl: https://github.com/KianJRoss/KnobDeck/releases/tag/v__VERSION__
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

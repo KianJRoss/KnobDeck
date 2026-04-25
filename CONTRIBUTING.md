@@ -6,6 +6,7 @@ Thanks for contributing to KnobDeck.
 - `python_host/`: Windows app runtime (Qt, plugins, integrations)
 - `sdk/plugins/`: plugin author templates
 - `sdk/firmware/`: firmware bridge templates for QMK boards
+- `packaging/winget/`: winget distribution manifests
 - `docs-site/`: GitHub Pages site
 
 ## Development Setup
@@ -28,6 +29,11 @@ python -m compileall python_host/*.py python_host/plugins/*.py python_host/custo
 3. For keyboard support changes, include VID/PID evidence (`list_devices.py` output).
 4. For plugin changes, include `plugin.json` schema updates.
 5. For firmware templates, include board and keymap target path.
+
+## Release and Packaging Notes
+1. Tagged releases (`v*`) publish installer/portable assets automatically.
+2. Verify generated `SHA256SUMS.txt` in release assets.
+3. Update `packaging/winget/` templates when preparing winget submissions.
 
 ## Adding Keyboard Profiles
 1. Edit `python_host/device_profiles.py`.
