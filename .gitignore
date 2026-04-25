@@ -24,6 +24,11 @@ build/
 dist/
 *.spec.tmp
 *.egg-info/
+!python_host/build/
+!python_host/build/windows/
+!python_host/build/windows/KnobDeck.spec
+!python_host/build/windows/installer.iss
+!python_host/build/windows/build_release.ps1
 
 # App/runtime generated files
 python_host/logs/*.log
