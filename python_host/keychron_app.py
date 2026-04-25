@@ -1,6 +1,6 @@
 """
-Keychron V1 Menu System - Main Application
-Python implementation of keychron_commands.ahk
+KnobDeck Legacy Host - Main Application
+Legacy compatibility runtime for KnobDeck
 
 Integrates:
 - Raw HID communication (hid_test.py)
@@ -51,7 +51,7 @@ log_handlers = []
 # Add file handler for pythonw.exe (no console) scenarios
 log_dir = Path(__file__).parent / "logs"
 log_dir.mkdir(exist_ok=True)
-log_file = log_dir / "keychron_app.log"
+log_file = log_dir / "knobdeck_legacy.log"
 log_handlers.append(logging.FileHandler(log_file, encoding='utf-8'))
 
 # Add console handler if stdout is available (python.exe)
@@ -66,7 +66,7 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=log_handlers
 )
-logger = logging.getLogger("KeychronApp")
+logger = logging.getLogger("KnobDeck.Legacy")
 
 
 # ============================================================================
@@ -214,7 +214,7 @@ class KeychronApp:
 
     def setup(self):
         """Initialize all components"""
-        logger.info("Initializing Keychron V1 Menu System...")
+        logger.info("Initializing KnobDeck legacy host...")
 
         # Check API status
         status = self.api.get_status()
@@ -432,7 +432,7 @@ class KeychronApp:
                 logger.debug(f"Connection attempt failed: {e}")
                 time.sleep(self.config['reconnect_interval'])
 
-        logger.error("Could not find Keychron V1 ANSI Encoder device.")
+        logger.error("Could not find configured keyboard HID device.")
         return False
 
     def hid_reader_loop(self):
@@ -574,7 +574,7 @@ class KeychronApp:
         self.timeout_thread.start()
 
         # Show startup notification
-        msg = "Keychron + Voicemeeter Active" if self.vm.is_available() else "Keychron Active"
+        msg = "KnobDeck + Voicemeeter Active" if self.vm.is_available() else "KnobDeck Active"
         self.ui.show_notification(msg, 2000)
 
         logger.info("System ready! Rotate or press encoder to interact.")
@@ -625,7 +625,7 @@ def main():
     
     config = load_config()
 
-    parser = argparse.ArgumentParser(description='Keychron V1 Menu System')
+    parser = argparse.ArgumentParser(description='KnobDeck Legacy Host')
     # Load available themes from themes.json
     available_themes = ['DARK', 'LIGHT', 'CYBER']  # defaults
     themes_path = Path(__file__).parent / 'themes.json'
@@ -700,3 +700,4 @@ def run_ui_test(config):
 
 if __name__ == "__main__":
     main()
+

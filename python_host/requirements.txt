@@ -1,4 +1,4 @@
-# Python dependencies for Keychron V1 Raw HID host software
+# Runtime dependencies for KnobDeck host app
 
 # HID communication library
 hidapi>=0.14.0
@@ -24,6 +24,3 @@ PyQt6>=6.6.0
 
 # Global hotkey listener (encoder events delivered via Ctrl+Alt+F13-F18)
 keyboard>=0.13.5
-
-# Packaging (optional for release builders)
-pyinstaller>=6.0.0

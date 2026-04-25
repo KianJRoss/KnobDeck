@@ -1,6 +1,8 @@
-﻿; Inno Setup installer script for KnobDeck
+; Inno Setup installer script for KnobDeck
 #define AppName "KnobDeck"
-#define AppVersion "0.2.0"
+#ifndef AppVersion
+  #define AppVersion "0.0.0-dev"
+#endif
 #define AppPublisher "KnobDeck Contributors"
 #define AppExeName "KnobDeck.exe"
 

@@ -54,3 +54,6 @@ firmware_baselines/
 # Windows odd device-name artifacts
 nul
 python_host/nul
+
+# Local downloaded release artifacts
+release_artifacts/

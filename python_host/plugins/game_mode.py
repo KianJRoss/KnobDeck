@@ -11,7 +11,7 @@ import win32api
 import win32con
 import pywintypes
 
-logger = logging.getLogger("KeychronApp.GameMode")
+logger = logging.getLogger("KnobDeck.GameMode")
 state_machine_ref = None
 
 # Windows API structures and constants

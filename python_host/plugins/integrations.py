@@ -17,7 +17,7 @@ from typing import Dict, List, Callable
 
 from menu_system import MenuMode, AppState, ModeHandler
 
-logger = logging.getLogger("KeychronApp.Integrations")
+logger = logging.getLogger("KnobDeck.Integrations")
 state_machine_ref = None
 SETTINGS = {
     "discord_mute_hotkey": "ctrl+shift+m",

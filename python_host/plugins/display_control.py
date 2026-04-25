@@ -11,7 +11,7 @@ import win32con
 import pywintypes
 import subprocess
 
-logger = logging.getLogger("KeychronApp.DisplayControl")
+logger = logging.getLogger("KnobDeck.DisplayControl")
 
 # Windows display device state flags (not all defined in win32con)
 DISPLAY_DEVICE_ATTACHED_TO_DESKTOP = 0x00000001

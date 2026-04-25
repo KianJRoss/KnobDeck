@@ -10,7 +10,7 @@ import win32gui
 import win32process
 import win32con
 
-logger = logging.getLogger("KeychronApp.VirtualDesktops")
+logger = logging.getLogger("KnobDeck.VirtualDesktops")
 
 # Windows 10+ Virtual Desktop COM interfaces
 # We'll use a simpler approach with keyboard shortcuts since COM is complex

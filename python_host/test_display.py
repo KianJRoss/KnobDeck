@@ -147,7 +147,7 @@ else:
     print("  Try running as Administrator")
 
 print("\nFor more details, check:")
-print("  python_host/logs/keychron_app.log")
+print("  python_host/logs/knobdeck_app.log")
 
 print("\n" + "=" * 60)
 input("Press Enter to exit...")

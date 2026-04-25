@@ -1,6 +1,6 @@
 """
-Keychron V1 Menu System - State Machine
-Based on keychron_commands.ahk AutoHotkey v2 implementation
+KnobDeck Menu System - State Machine
+Originally inspired by early AutoHotkey prototypes
 
 Architecture:
     - State machine tracks current mode (normal, menu modes)
@@ -512,3 +512,4 @@ class MenuStateMachine:
         if prev_index == 3 and curr_index == 0:
             return True
         return False
+

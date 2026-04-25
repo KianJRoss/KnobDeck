@@ -1,5 +1,5 @@
 """
-App Launcher Plugin for Keychron Menu System
+App Launcher Plugin for KnobDeck
 
 Provides an "Apps" menu with Cursor, Playnite, and Opera GX launchers
 """
@@ -17,7 +17,7 @@ if parent_dir not in sys.path:
 
 from menu_system import MenuMode, AppState, ModeHandler
 
-logger = logging.getLogger("KeychronApp.AppLauncher")
+logger = logging.getLogger("KnobDeck.AppLauncher")
 
 # ============================================================================
 # APPLICATION PATHS

@@ -8,7 +8,7 @@ from context_aware import context_manager, ContextCommand
 from menu_system import ModeHandler, AppState, MenuMode
 from typing import Dict, List
 
-logger = logging.getLogger("KeychronApp.ContextCommands")
+logger = logging.getLogger("KnobDeck.ContextCommands")
 
 _state_machine = None
 

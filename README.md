@@ -30,6 +30,11 @@ Build locally:
 build_installer.bat
 ```
 
+Build env notes:
+- Runtime deps: `python_host/requirements.txt`
+- Build deps: `python_host/requirements-build.txt`
+- Pinned baseline: `python_host/requirements-lock.txt`
+
 ## Start App
 
 ```powershell

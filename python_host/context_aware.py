@@ -15,7 +15,7 @@ import time
 from typing import Dict, List, Optional, Callable, Any
 from dataclasses import dataclass
 
-logger = logging.getLogger("KeychronApp.ContextAware")
+logger = logging.getLogger("KnobDeck.ContextAware")
 
 
 @dataclass

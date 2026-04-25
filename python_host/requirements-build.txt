@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# Build/package-only dependencies
+pyinstaller>=6.0.0
