@@ -1,0 +1,54 @@
+﻿# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+.venv/
+python_host/venv/
+python_host/.venv/
+
+# Build / packaging artifacts
+build/
+dist/
+*.spec.tmp
+*.egg-info/
+
+# App/runtime generated files
+python_host/logs/*.log
+python_host/logs/*.png
+python_host/logs/*.txt
+python_host/logs/*.json
+!python_host/logs/.gitkeep
+
+# Local config/runtime state
+python_host/config.local.json
+python_host/.env
+.env
+
+# Local scratch and external source mirrors
+_tmp_signalrgb_106/
+qmk_firmware/
+firmware_baselines/
+
+# Editor / IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+.idea/
+
+# Windows odd device-name artifacts
+nul
+python_host/nul
