@@ -14,7 +14,7 @@ cd python_host
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-python keychron_app_qt.py --no-detach
+python knobdeck_app.py --no-detach
 ```
 
 ## Pull Request Rules

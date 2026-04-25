@@ -48,10 +48,7 @@ qmk_firmware/
 firmware_baselines/
 
 # Editor / IDE
-.vscode/*
-!.vscode/settings.json
-!.vscode/extensions.json
-!.vscode/launch.json
+.vscode/
 .idea/
 
 # Windows odd device-name artifacts
