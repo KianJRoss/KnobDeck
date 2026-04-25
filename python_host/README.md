@@ -1,123 +1,54 @@
-# Python Host Software - Keychron V1 Raw HID
+﻿# KnobDeck Host App (Python/Qt)
 
-Python tools for communicating with the custom Keychron V1 firmware.
+KnobDeck is a Windows desktop app for knob-equipped keyboards.
 
-## Installation
+It combines:
+- radial menu + macro workflows,
+- plugin integrations (OBS/Discord/Steam/etc.),
+- profile-aware keyboard support,
+- optional SignalRGB and Voicemeeter controls.
 
-### Prerequisites
-- Python 3.8 or higher
-- pip package manager
+## Quick Start
 
-### Setup
-
-```bash
-cd C:\CLIPALS\python_host
+```powershell
+cd python_host
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+python knobdeck_app.py --no-detach
 ```
 
-## Tools
+## Keyboard Profiles
 
-### 1. HID Test Tool (`hid_test.py`)
+Profiles are defined in `device_profiles.py` and include VID/PID + capabilities.
 
-Interactive test application for validating firmware communication.
+Use Settings -> General:
+- `Keyboard profile` dropdown for manual selection
+- `Auto-Detect Keyboard` to match connected devices
 
-**Features:**
-- Reads encoder events in real-time
-- Sends LED mode/color commands
-- Automatic reconnection on USB disconnect
-- Demonstrates proper threading pattern
+## Plugin System
 
-**Usage:**
-```bash
-python hid_test.py
-```
+Built-in plugins are in `python_host/plugins/`.
+Custom plugins go in `python_host/custom_plugins/`.
 
-**What it does:**
-- Connects to Keychron V1 via Raw HID
-- Prints all encoder events (CW, CCW, press, long-press, double-tap)
-- Auto-changes LED colors based on event type:
-  - Green: Clockwise rotation
-  - Red: Counter-clockwise rotation
-  - Blue: Button press
-  - Yellow: Long-press
-  - Magenta: Double-tap
+Use the SDK starter in `sdk/plugins/template_plugin`.
+Manifests (`*.plugin.json`) provide metadata and schema-driven settings UI.
 
-### 2. Full Menu System (Coming Soon)
+## Firmware Bridge Model
 
-- Overlay UI with menu rendering
-- State machine for menu navigation
-- Command execution backends:
-  - Volume control (pycaw)
-  - Media keys (win32)
-  - Voicemeeter integration
-  - Window management
-  - Application launcher
+Firmware should emit gesture shortcuts (`F13`..`F18`) so typing + VIA keep working while the app handles knob actions.
 
-## Troubleshooting
+Template files:
+- `sdk/firmware/qmk_encoder_bridge/keymap.c.template`
+- `sdk/firmware/qmk_encoder_bridge/rules.mk.template`
 
-### "Failed to open device"
-- Verify keyboard is plugged in
-- Check VID/PID in `hid_test.py` matches your keyboard
-- Windows: May need HID drivers (usually automatic)
-- Try unplugging and replugging USB
+## Windows Packaging
 
-### No events received
-- Ensure custom firmware is flashed (not stock firmware)
-- Check QMK Toolbox for successful flash
-- Verify encoder is working in VIA first
+- PyInstaller spec: `build/windows/KnobDeck.spec`
+- Inno Setup script: `build/windows/installer.iss`
+- Local build script: `build/windows/build_release.ps1`
+- CI workflow: `.github/workflows/windows-release.yml`
 
-### "Module not found: hidapi"
-- Run `pip install hidapi`
-- On some systems may need `pip install hid` instead
+## Docs Site
 
-## VID/PID Configuration
-
-If the default VID/PID doesn't work:
-
-1. Check Device Manager (Windows):
-   - View → Devices by connection
-   - Find "HID-compliant device" under your keyboard
-   - Properties → Details → Hardware IDs
-   - Look for `VID_XXXX&PID_YYYY`
-
-2. Update in `hid_test.py`:
-   ```python
-   VENDOR_ID = 0xXXXX   # Your VID
-   PRODUCT_ID = 0xYYYY  # Your PID
-   ```
-
-## Development Notes
-
-### Threading Architecture
-
-The HID reader uses a **blocking read pattern** for efficiency:
-
-```python
-# HID reader thread (daemon)
-data = device.read(32, timeout_ms=50)  # Blocks, releases GIL
-
-# Main thread polls queue at 60Hz
-event = event_queue.get(timeout=0.1)
-```
-
-This approach:
-- Minimizes CPU usage (no tight polling loops)
-- Responds quickly to events (<50ms latency)
-- Allows clean shutdown via threading events
-
-### Watchdog Thread
-
-Monitors connection status and attempts automatic reconnection every 2 seconds if disconnected.
-
-### Queue Overflow Prevention
-
-The event queue is unbounded by default. For production:
-- Use `queue.Queue(maxsize=100)` to prevent memory buildup
-- Implement queue overflow handling in reader thread
-
-## Next Steps
-
-1. Build overlay UI framework with proper Windows flags
-2. Implement menu state machine
-3. Add command execution backends
-4. Create configuration system for user-defined macros
+GitHub Pages content lives in `docs-site/` and deploys via `.github/workflows/pages.yml`.
