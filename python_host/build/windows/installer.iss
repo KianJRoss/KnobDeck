@@ -17,7 +17,6 @@ OutputBaseFilename=KnobDeck-Setup-{#AppVersion}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-SetupIconFile=..\..\dist\KnobDeck\assets\knobdeck.ico
 UninstallDisplayIcon={app}\assets\knobdeck.ico
 
 [Languages]
