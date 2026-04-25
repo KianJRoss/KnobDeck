@@ -4,7 +4,7 @@ block_cipher = None
 
 from pathlib import Path
 project_root = Path.cwd()
-app_root = project_root / "python_host"
+app_root = project_root
 
 a = Analysis(
     [str(app_root / "knobdeck_app.py")],
