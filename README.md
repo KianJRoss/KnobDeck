@@ -18,6 +18,18 @@ It provides:
 - `.github/workflows/windows-release.yml` - build portable + installer artifacts
 - `.github/workflows/pages.yml` - deploy docs site
 
+## Install (EXE)
+
+Use the Windows installer from Releases:
+- `KnobDeck-Setup-<version>.exe`
+- https://github.com/KianJRoss/KnobDeck/releases
+
+Build locally:
+
+```bat
+build_installer.bat
+```
+
 ## Start App
 
 ```powershell
