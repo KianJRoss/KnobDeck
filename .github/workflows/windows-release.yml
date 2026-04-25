@@ -34,7 +34,7 @@ jobs:
           pyinstaller --noconfirm build/windows/KnobDeck.spec
 
       - name: Upload portable artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: KnobDeck-portable
           path: python_host/dist/KnobDeck
@@ -81,14 +81,14 @@ jobs:
           "${zipHash}  $($zip.Name)" | Add-Content -Path $checksumFile
 
       - name: Upload installer artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: KnobDeck-installer
           path: python_host/dist/installer/*.exe
 
       - name: Upload checksums artifact
         if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: KnobDeck-checksums
           path: python_host/dist/SHA256SUMS.txt
