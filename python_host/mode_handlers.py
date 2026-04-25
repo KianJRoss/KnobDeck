@@ -795,7 +795,7 @@ class ThemeColorHandler(ModeHandler):
             # We don't know the exact theme name here easily, 
             # but we can save to 'CUSTOM' or the currently active one.
             # For simplicity, let's assume the user is updating the current active theme.
-            # In keychron_app.py we can pass the theme name or just have it save the current.
+            # In knobdeck_legacy_app.py we can pass the theme name or just have it save the current.
             res['save_theme'] = 'CUSTOM' 
             self.should_save = False
             

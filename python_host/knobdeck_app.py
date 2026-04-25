@@ -6,7 +6,7 @@ while exposing a neutral, non-vendor-specific launcher path.
 
 from __future__ import annotations
 
-from keychron_app_qt import main
+from knobdeck_app_qt import main
 
 
 if __name__ == "__main__":
