@@ -17,7 +17,7 @@ pystray>=0.19.0
 Pillow>=10.0.0
 
 # Process and system utilities (for context detection)
-psutil>=5.9.0
+psutil>=7.2.2
 
 # Modern Qt-based overlay UI
 PyQt6>=6.6.0
