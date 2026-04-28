@@ -7,7 +7,7 @@ hidapi==0.15.0
 keyboard==0.13.5
 packaging==26.2
 pefile==2024.8.26
-pillow==12.1.0
+pillow==12.2.0
 psutil==7.2.1
 pycaw==20251023
 pyinstaller==6.20.0
