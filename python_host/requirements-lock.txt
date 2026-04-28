@@ -2,7 +2,7 @@
 # Refresh from a validated environment with:
 #   python -m pip freeze > requirements-lock.txt
 altgraph==0.17.5
-comtypes==1.4.14
+comtypes==1.4.16
 hidapi==0.15.0
 keyboard==0.13.5
 packaging==26.2
